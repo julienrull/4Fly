@@ -19,3 +19,11 @@
 
 # Go workspace file
 go.work
+
+*.mp4
+*.pdb
+*.rdbg
+*.json
+*.html
+
+
