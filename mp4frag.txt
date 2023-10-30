@@ -1,0 +1,4 @@
+styp 0 (no children)
+sidx 0
+moof 0
+mdat 0

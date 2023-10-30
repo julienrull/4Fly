@@ -2,10 +2,17 @@ package mp4
 
 
 BOXES := map[string]int{
+    "cdsc" = 3,
+    "hint" = 3,
+    "uuid" = 0,
     "ftyp" = 0,
+    "styp" = 0,
     "pdin" = 0,
+    "sidx" = 0,
     "moov" = 0,
+    "moof" = 0,
     "mvhd" = 1,
+    "iods" = 1,
     "trak" = 1,
     "tkhd" = 2,
     "tref" = 2,
@@ -54,6 +61,8 @@ BOXES := map[string]int{
     "free" = 0,
     "skip" = 0,
     "udta" = 1,
+    "senc" = 2,
+    "wide" = 2,
     "cprt" = 2,
     "meta" = 0,
     "iloc" = 1,
