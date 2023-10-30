@@ -76,7 +76,7 @@ print_box :: proc(box: Box){
     fmt.println("Size:", box.size)
 }
 
-FileTypeBox :: struct { // ftyp
+FileTypeBox :: struct { // ftyp && styp
     box:          Box,
     major_brand:        u32be,
     minor_version:      u32be,
@@ -223,30 +223,65 @@ NullMediaHeaderBox :: struct { // minf -> nmhd
     fullBox:    FullBox,
 }
 
-SidxItems :: struct {
-    reference_type: byte, // 1 bit
-    referenced_size: u32be, // 31 bit
-    subsegment_duration: u32be,
-    starts_with_SAP: byte, // 1 bit
-    SAP_type: byte, // 3 bit
-    SAP_delta_time: u32be // 28 bit
+// Fragment --------------------------------------------------
+
+Fragment :: struct {
+    styp:   FileTypeBox,
+    sidxs:   [dynamic]SegmentIndexBox,
+    moof:   MovieFragmentBox,
+    mdat:   MediaDataBox
 }
 
-Sidx :: struct {
-    fullBox:    FullBox,
-    reference_ID: u32be,
-    timescale: u32be,
-    earliest_presentation_time: u32be,
-    earliest_presentation_time_extends: u64be,
-    first_offset: u32be,
-    first_offset_extends: u64be,
-    reserved: u16be,
-    reference_count: u16be,
-    items:  []SidxItems,
+deserialize_fragment :: proc(data: []byte) ->  (Fragment, u64) {
+    acc: u64 = 0
+    styp, styp_size := deserialize_ftype(data)
+    acc += styp_size
+    sidxs := make([dynamic]SegmentIndexBox, 0, 16)
+    box, box_size := deserialize_box(data[acc:])
+    name := to_string(&box.type)
+    for name == "sidx" {
+        sidx, sidx_size := deserialize_sidx(data[acc:])
+        append(&sidxs, sidx)
+        acc += sidx_size
+        box, box_size = deserialize_box(data[acc:])
+        name = to_string(&box.type)
+    }
+    moof, moof_size := deserialize_moof(data[acc:])
+    acc += moof_size
+    mdat, mdat_size := deserialize_mdat(data[acc:])
+    acc += mdat_size
+    return Fragment{
+        styp,
+        sidxs,
+        moof,
+        mdat
+    }, acc
+}
+
+SegmentIndexBoxItems :: struct {
+    reference_type:         byte, // 1 bit
+    referenced_size:        u32be, // 31 bit
+    subsegment_duration:    u32be,
+    starts_with_SAP:        byte, // 1 bit
+    SAP_type:               byte, // 3 bit
+    SAP_delta_time:         u32be // 28 bit
+}
+
+SegmentIndexBox :: struct { // sidx
+    fullBox:                                FullBox,
+    reference_ID:                           u32be,
+    timescale:                              u32be,
+    earliest_presentation_time:             u32be,
+    earliest_presentation_time_extends:     u64be,
+    first_offset:                           u32be,
+    first_offset_extends:                   u64be,
+    reserved:                               u16be,
+    reference_count:                        u16be,
+    items:                                  []SegmentIndexBoxItems,
 }
 
 // TODO: implement deserialize_sidx
-deserialize_sidx :: proc(data: []byte) ->  (Sidx, u64) {
+deserialize_sidx :: proc(data: []byte) ->  (SegmentIndexBox, u64) {
     acc: u64 = 0
     fullbox, fullbox_size := deserialize_fullbox(data)
     acc = acc + fullbox_size
@@ -273,7 +308,7 @@ deserialize_sidx :: proc(data: []byte) ->  (Sidx, u64) {
     acc = acc + size_of(u16be)
     reference_count := (^u16be)(&data[acc])^
     acc = acc + size_of(u16be)
-    items := make([]SidxItems, reference_count)
+    items := make([]SegmentIndexBoxItems, reference_count)
 
     for i:=0; i < int(reference_count); i+=1 {
         tmp: u32be = (^u32be)(&data[acc])^
@@ -288,13 +323,216 @@ deserialize_sidx :: proc(data: []byte) ->  (Sidx, u64) {
         items[i].SAP_delta_time = tmp & 0xfffffff
         acc = acc + size_of(u32be)
     }
-    return Sidx{fullbox, reference_ID, timescale, earliest_presentation_time, earliest_presentation_time_extends, first_offset, first_offset_extends, reserved, reference_count, items}, acc
+    return SegmentIndexBox{fullbox, reference_ID, timescale, earliest_presentation_time, earliest_presentation_time_extends, first_offset, first_offset_extends, reserved, reference_count, items}, acc
 }
 
-// deserialize_sidx :: proc(data: []byte) ->  Sidx{
-//     sidx := (^Sidx)(&data[0])^
-//     return sidx
-// }
+MovieFragmentBox :: struct { // moof
+    box:        Box,
+    mfhd:       MovieFragmentHeaderBox,
+    trafs:      []TrackFragmentBox
+}
+
+deserialize_moof :: proc(data: []byte) -> (MovieFragmentBox, u64) { // TODO
+    acc: u64 = 0
+    size: u64 = 0
+    box, box_size := deserialize_box(data)
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0{
+        size = u64(len(data))
+    }else {
+        size = u64(box.size)
+    }
+    acc += box_size
+    mfhd, mfhd_size := deserialize_traf(data[acc:])
+    trafs := make([dynamic]TrackFragmentBox, 0, 16)
+    traf_box, traf_box_size := deserialize_box(data[acc:])
+    name := to_string(&box.type)
+    for name == "traf" {
+        traf, traf_size := deserialize_traf(data[acc:])
+        append(&trafs, traf)
+        acc += traf_size
+        box, box_size = deserialize_box(data[acc:])
+        name = to_string(&box.type)
+    }
+    return MovieFragmentBox{}, acc
+}
+
+MovieFragmentHeaderBox :: struct { // moof -> mfhd
+    fullbox:            FullBox,
+    sequence_number:    u32be
+}
+
+deserialize_mfhd :: proc(data: []byte) -> (MovieFragmentHeaderBox, u64) { // TODO
+    fullbox, fullbox_size := deserialize_fullbox(data)
+    return MovieFragmentHeaderBox{fullbox, (^u32be)(&data[fullbox_size])^}, fullbox_size + size_of(u32be)
+}
+
+TrackFragmentBox :: struct { // moof -> traf
+    box:    Box,
+    tfhd:   TrackFragmentHeaderBox
+}
+
+deserialize_traf :: proc(data: []byte) -> (TrackFragmentBox, u64) {
+    size: u64 = 0
+    box, box_size := deserialize_box(data)
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0{
+        size = u64(len(data))
+    }else {
+        size = u64(box.size)
+    }
+    tfhd, tfhd_size := deserialize_tfhd(data[box_size:])
+    return TrackFragmentBox{
+        box,
+        tfhd
+    }, size
+}
+
+TrackFragmentHeaderBox :: struct { // traf -> tfhd
+    fullbox:                    FullBox,
+    track_ID:                   u32be,
+    // all the following are optional fields
+    base_data_offset:           u64be,
+    sample_description_index:   u32be,
+    default_sample_duration:    u32be,
+    default_sample_size:        u32be,
+    default_sample_flags:       u32be
+}
+
+deserialize_tfhd :: proc(data: []byte) -> (TrackFragmentHeaderBox, u64) { // TODO
+    acc: u64 = 0
+    size: u64 = 0
+    fullbox, fullbox_size := deserialize_fullbox(data)
+    if fullbox.box.size == 1 {
+        size = u64(fullbox.box.largesize)
+    }else {
+        size = u64(fullbox.box.size)
+    }
+    acc += fullbox_size
+    track_ID := (^u32be)(&data[acc])^
+    acc += size_of(u32be)
+    base_data_offset:           u64be
+    sample_description_index:   u32be
+    default_sample_duration:    u32be
+    default_sample_size:        u32be
+    default_sample_flags:       u32be
+    if size >= acc + size_of(u64be) {
+        base_data_offset = (^u64be)(&data[acc])^
+        acc += size_of(u64be)
+         if size >= acc + size_of(u32be) {
+            sample_description_index = (^u32be)(&data[acc])^
+            acc += size_of(u32be)
+            if size >= acc + size_of(u32be) {
+                default_sample_duration = (^u32be)(&data[acc])^
+                acc += size_of(u32be)
+                if size >= acc + size_of(u32be) {
+                    default_sample_size = (^u32be)(&data[acc])^
+                    acc += size_of(u32be)
+                    if size >= acc + size_of(u32be) {
+                        default_sample_flags = (^u32be)(&data[acc])^
+                        acc += size_of(u32be)
+                    }
+                }
+            }
+         }
+    }
+    return TrackFragmentHeaderBox{
+        fullbox,
+        track_ID,
+        base_data_offset,
+        sample_description_index,
+        default_sample_duration,
+        default_sample_size,
+        default_sample_flags
+    }, acc
+}
+
+TrackRunBox :: struct { // traf -> trun
+    fullbox:                FullBox,
+    sample_count:           u32be,
+    // the following are optional fields
+    data_offset:            i32be,
+    first_sample_flags:     u32be,
+    // all fields in the following array are optional
+    samples:                []TrackRunBoxSample
+}
+
+TrackRunBoxSample :: struct {
+    sample_duration:                    u32be,
+    sample_size:                        u32be,
+    sample_flags:                       u32be,
+    sample_composition_time_offset:     u32be,
+}
+
+deserialize_trun :: proc(data: []byte) -> (TrackRunBox, u64) { // TODO
+    acc: u64 = 0
+    size: u64 = 0
+    fullbox, fullbox_size := deserialize_fullbox(data)
+    if fullbox.box.size == 1 {
+        size = u64(fullbox.box.largesize)
+    }else {
+        size = u64(fullbox.box.size)
+    }
+    acc += fullbox_size
+    sample_count: u32be = (^u32be)(&data[acc])^
+    acc = acc + size_of(u32be)
+    data_offset:            i32be
+    first_sample_flags:     u32be
+    if size >= acc + size_of(u32be) {
+        data_offset = (^i32be)(&data[acc])^
+        acc = acc + size_of(u32be)
+        if size >= acc + size_of(u32be) {
+            first_sample_flags = (^u32be)(&data[acc])^
+            acc = acc + size_of(u32be)
+        }
+    }
+    samples := make([]TrackRunBoxSample, sample_count)
+    for i:=0; i < int(sample_count); i+=1 {
+        samples[i].sample_duration                    = (^u32be)(&data[acc])^
+        acc = acc + size_of(u32be)
+        samples[i].sample_size                        = (^u32be)(&data[acc])^
+        acc = acc + size_of(u32be)
+        samples[i].sample_flags                       = (^u32be)(&data[acc])^
+        acc = acc + size_of(u32be)
+        samples[i].sample_composition_time_offset     = (^u32be)(&data[acc])^
+        acc = acc + size_of(u32be)
+    }
+    return TrackRunBox{
+        fullbox,
+        sample_count,
+        data_offset,
+        first_sample_flags,
+        samples
+    }, acc
+}
+
+
+MediaDataBox :: struct { // mdat
+    box:    Box,
+    data:   []byte
+}
+
+deserialize_mdat :: proc(data: []byte) -> (MediaDataBox, u64) { // TODO
+    acc: u64 = 0
+    size: u64 = 0
+    box, box_size := deserialize_box(data)
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0{
+        size = u64(len(data))
+    }else {
+        size = u64(box.size)
+    }
+    acc += box_size
+    data := make([]byte, size - box_size)
+    acc += (size - box_size)
+    return MediaDataBox{
+        box,
+        data
+    }, acc
+}
 
 // Page 19 TABLE
 // page 31 RESUM
