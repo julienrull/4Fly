@@ -112,18 +112,40 @@ deserialize_ftype :: proc(data: []byte) -> (FileTypeBox, u64) {
 }
 
 MovieBox :: struct { // moov
-    box: Box,
-    movieHeaderBox: MovieHeaderBox
+    box:            Box,
+    movieHeaderBox: MovieHeaderBox,
+    traks:          []TrackBox,
+    udta: UserDataBox
+}
+
+UserDataBox :: struct{ // moov -> udta
+    box:    Box,
+    cprt:   CopyrightBox
+}
+
+CopyrightBox :: struct { // udta -> cprt
+    fullBox: FullBox,
+    pad: byte, // 1 bit
+    language: [3]byte, // unsigned int(5)[3]
+    notice: string
 }
 
 MovieHeaderBox :: struct {  // moov -> mvhd
-    fullBox:                FullBox,
-    creation_time:          u32be,
-    modification_time:      u32be,
-    timescale:              u32be,
-    duration:               u32be,
-    rate:                   i32be,
-    volume:                 i16be
+    fullBox:                    FullBox,
+    creation_time:              u32be,
+    modification_time:          u32be,
+    timescale:                  u32be,
+    duration:                   u32be,
+    creation_time_extends:      u64be,
+    modification_time_extends:  u64be,
+    duration_extends:           u64be,
+    rate:                       i32be,
+    volume:                     i16be,
+    reserved:                   i16be,
+    reserved2: [2]i32be,
+    matrixx: [9]i32be,
+    pre_defined: [6]i32be,
+    next_track_ID: u32be,
 }
 
 deserialize_mvhd :: proc(data: []byte) -> MovieHeaderBox{
@@ -132,27 +154,33 @@ deserialize_mvhd :: proc(data: []byte) -> MovieHeaderBox{
 }
 
 TrackBox :: struct { // moov -> trak
-    box:                Box,
-    trackHeaderBox:     TrackHeaderBox
+    box:    Box,
+    tkhd:   TrackHeaderBox,
+    mdias:   []MediaBox,
+    edtss:   []EditBox,
 }
 
 
 // TODO: props base on version : 0 or 1
 TrackHeaderBox :: struct { // trak -> tkhd
-    fullBox:                FullBox,
-    creation_time:          u32be,
-    modification_time:      u32be,
-    track_ID:               u32be,
-    reserved:               u32be,
-    duration:               u32be,
-    reserved2:              [2]u32be,
-    layer:                  i16be,
-    alternate_group:        i16be,
-    volume:                 i16be,
-    reserved3:              u16be,
-    matrixx:                [9]i32be,
-    width:                  u32be,
-    height:                 u32be,
+    fullBox:                    FullBox,
+    creation_time:              u32be,
+    creation_time_extends:      u64be,
+    modification_time:          u32be,
+    modification_time_extends:  u64be,
+    track_ID:                   u32be,
+    reserved:                   u32be,
+    duration:                   u32be,
+    duration_extends:           u64be,
+
+    reserved2:                  [2]u32be,
+    layer:                      i16be,
+    alternate_group:            i16be,
+    volume:                     i16be,
+    reserved3:                  u16be,
+    matrixx:                    [9]i32be,
+    width:                      u32be,
+    height:                     u32be,
 }
 
 
@@ -162,28 +190,45 @@ deserialize_tkhd  :: proc(data: []byte) -> TrackHeaderBox{
     return track
 }
 
-TrackReferenceBox :: struct { // trak -> tref
+EditBox :: struct { // trak -> edts
     box:    Box,
+    elst:   EditListBox,
 }
 
-TrackReferenceTypeBox :: struct { // trak -> hint or cdsc
-    box:    Box,
-    track_IDs: []u32be
+EditListBox :: struct { // edts -> elst
+    fullBox:        FullBox,
+    entry_count:    u32be,
+    entries:        []EditListBoxEntries,
+}
+
+EditListBoxEntries :: struct {
+    segment_duration:           u32be,
+    media_time:                 i32be,
+    segment_duration_extends:   u64be,
+    media_time_extends:         i64be,
+
+    media_rate_integer:         i16be,
+    media_rate_fraction:        i16be,
 }
 
 MediaBox :: struct { // trak -> mdia
     box:    Box,
+    mdhd:   MediaHeaderBox,
+    hdlr:   HandlerBox,
 }
 
-// TODO: props base on version : 0 or 1
 MediaHeaderBox :: struct { // mdia -> mdhd
-    fullBox:                FullBox,
-    creation_time:          u32be,
-    modification_time:      u32be,
-    timescale:              u32be,
-    duration:               u32be,
+    fullBox:                    FullBox,
+    creation_time:              u32be,
+    creation_time_extends:      u64be,
+    modification_time:          u32be,
+    modification_time_extends:  u64be,
+    timescale:                  u32be,
+    duration:                   u32be,
+    duration_extends:           u64be,
+
     pad:                    byte, // ! 1 bit 
-    language:               [3][5]u8, // unsigned int(5)[3]
+    language:               [3]u8, // unsigned int(5)[3]
     pre_defined:            u16be
 }
 
@@ -222,6 +267,8 @@ HintMediaHeaderBox :: struct { // minf -> hmhd
 NullMediaHeaderBox :: struct { // minf -> nmhd
     fullBox:    FullBox,
 }
+
+
 
 // Fragment --------------------------------------------------
 
@@ -329,7 +376,7 @@ deserialize_sidx :: proc(data: []byte) ->  (SegmentIndexBox, u64) {
 MovieFragmentBox :: struct { // moof
     box:        Box,
     mfhd:       MovieFragmentHeaderBox,
-    trafs:      []TrackFragmentBox
+    trafs:      [dynamic]TrackFragmentBox
 }
 
 deserialize_moof :: proc(data: []byte) -> (MovieFragmentBox, u64) { // TODO
@@ -344,18 +391,20 @@ deserialize_moof :: proc(data: []byte) -> (MovieFragmentBox, u64) { // TODO
         size = u64(box.size)
     }
     acc += box_size
-    mfhd, mfhd_size := deserialize_traf(data[acc:])
+    mfhd, mfhd_size := deserialize_mfhd(data[acc:])
+    acc += mfhd_size
     trafs := make([dynamic]TrackFragmentBox, 0, 16)
     traf_box, traf_box_size := deserialize_box(data[acc:])
-    name := to_string(&box.type)
+    name := to_string(&traf_box.type)
     for name == "traf" {
+        fmt.println(name)
         traf, traf_size := deserialize_traf(data[acc:])
         append(&trafs, traf)
         acc += traf_size
-        box, box_size = deserialize_box(data[acc:])
-        name = to_string(&box.type)
+        traf_box, traf_box_size = deserialize_box(data[acc:])
+        name = to_string(&traf_box.type)
     }
-    return MovieFragmentBox{}, acc
+    return MovieFragmentBox{box, mfhd, trafs}, acc
 }
 
 MovieFragmentHeaderBox :: struct { // moof -> mfhd
@@ -370,7 +419,8 @@ deserialize_mfhd :: proc(data: []byte) -> (MovieFragmentHeaderBox, u64) { // TOD
 
 TrackFragmentBox :: struct { // moof -> traf
     box:    Box,
-    tfhd:   TrackFragmentHeaderBox
+    tfhd:   TrackFragmentHeaderBox,
+    trun:   TrackRunBox
 }
 
 deserialize_traf :: proc(data: []byte) -> (TrackFragmentBox, u64) {
@@ -384,9 +434,11 @@ deserialize_traf :: proc(data: []byte) -> (TrackFragmentBox, u64) {
         size = u64(box.size)
     }
     tfhd, tfhd_size := deserialize_tfhd(data[box_size:])
+    trun, trun_size := deserialize_trun(data[box_size + tfhd_size:])
     return TrackFragmentBox{
         box,
-        tfhd
+        tfhd,
+        trun
     }, size
 }
 
@@ -511,7 +563,7 @@ deserialize_trun :: proc(data: []byte) -> (TrackRunBox, u64) { // TODO
 
 MediaDataBox :: struct { // mdat
     box:    Box,
-    data:   []byte
+    //data:   []byte
 }
 
 deserialize_mdat :: proc(data: []byte) -> (MediaDataBox, u64) { // TODO
@@ -526,11 +578,12 @@ deserialize_mdat :: proc(data: []byte) -> (MediaDataBox, u64) { // TODO
         size = u64(box.size)
     }
     acc += box_size
-    data := make([]byte, size - box_size)
+    //mdat_data := data[box_size:]
     acc += (size - box_size)
+
     return MediaDataBox{
         box,
-        data
+        //mdat_data
     }, acc
 }
 
