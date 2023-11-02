@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:os"
 import "core:mem"
 import "core:strings"
+import "core:slice"
 import json "core:encoding/json"
 import "mp4"
 
@@ -20,16 +21,10 @@ main :: proc() {
     defer delete(buffer)
     os.read(f, buffer)
 
-    mp4.print_mp4(buffer)
-    // fragment, fragment_size := mp4.deserialize_fragment(buffer)
-    // data, err_parse := json.marshal(fragment)
-    // fmt.printf("%s", data)
-
-    
-    // acc: u64 = 0
-    // styp, styp_size := mp4.deserialize_ftype(buffer)
-    // acc = acc + u64(styp.box.size)
-    // sidx, sidx_size := mp4.deserialize_sidx(buffer[acc:])
-    // fmt.println(sidx)
-    // fmt.println(sidx_size)
+    mp4.dump(buffer, u64(len(buffer)))
+    //mp4.print_mp4(buffer)
+    // ftyp, ftyp_size := mp4.deserialize_ftype(buffer)
+    // fmt.println(ftyp)
+    // fmt.println(mp4.to_string(&ftyp.compatible_brands[0]), mp4.to_string(&ftyp.compatible_brands[1]))
+    // fmt.println(mp4.deserialize_ftype(mp4.create_fragment_styp()))
 }

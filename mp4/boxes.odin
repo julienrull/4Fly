@@ -1,7 +1,8 @@
 package mp4
 
-
 BOXES := map[string]int{
+    "url" = 6,
+    "urn" = 6,
     "cdsc" = 3,
     "hint" = 3,
     "uuid" = 0,
