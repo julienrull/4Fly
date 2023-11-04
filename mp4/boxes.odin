@@ -57,6 +57,7 @@ BOXES := map[string]int{
     "trun" = 2,
     "mfra" = 0,
     "tfra" = 1,
+    "tfdt" = 1,
     "mfro" = 1,
     "mdat" = 0,
     "free" = 0,

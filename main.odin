@@ -1,30 +1,32 @@
 package main
 
-import "core:fmt"
-import "core:os"
-import "core:mem"
-import "core:strings"
-import "core:slice"
 import json "core:encoding/json"
+import "core:fmt"
+import "core:mem"
+import "core:os"
+import "core:slice"
+import "core:strings"
 import "mp4"
 
-
 main :: proc() {
-    args := os.args[1:]
-    size := os.file_size_from_path(args[0])
-    f, ferr := os.open(args[0])
-    if ferr != 0 {
-            return
-    }
-    defer os.close(f)
-    buffer, err := mem.alloc_bytes((int)(size))
-    defer delete(buffer)
-    os.read(f, buffer)
+// test := 0b10000101_00000000
+// mask := 0b00000000_00000001
+// test_shift := test >> 8
+// bit := test_shift & mask
+// mask = 0b00000000_11111111
+// rest := (test_shift >> 1) & mask
+// fmt.println(bit)
+// fmt.println(rest)
+	args := os.args[1:]
+	size := os.file_size_from_path(args[0])
+	f, ferr := os.open(args[0])
+	if ferr != 0 {
+		return
+	}
+	defer os.close(f)
+	buffer, err := mem.alloc_bytes((int)(size))
+	defer delete(buffer)
+	os.read(f, buffer)
 
-    mp4.dump(buffer, u64(len(buffer)))
-    //mp4.print_mp4(buffer)
-    // ftyp, ftyp_size := mp4.deserialize_ftype(buffer)
-    // fmt.println(ftyp)
-    // fmt.println(mp4.to_string(&ftyp.compatible_brands[0]), mp4.to_string(&ftyp.compatible_brands[1]))
-    // fmt.println(mp4.deserialize_ftype(mp4.create_fragment_styp()))
+	mp4.dump(buffer, u64(len(buffer)))
 }
