@@ -5,29 +5,39 @@
 - Deserialization / Srilization
 
 - [x] Dump MP4 / M4S files
-- [ ] deserialization
-    - [x] sidx
-    - [x] moof
-    - [x] stts
-    - [x] ctts
-    - [x] stsd
-    - [x] stsz
-    - [ ] stz2 (manque serialization)
-    - [ ] stsc
-    - [ ] stco
-    - [ ] co64
-    - [ ] stss
-    - [ ] stsh
-    - [ ] stdp
-    - [ ] padb
-    - [ ] free
+- [ ] deserialization / serialization
+    - [x] styp (serialization)
+    - [x] sidx (serialization)
+    - [x] moof (serialization)
+    - [x] mfhd (serialization)
+    - [x] traf (serialization)
+    - [x] tfhd (serialization)
+    - [x] tfdt (serialization)
+    - [x] trun (serialization)
+    - [x] mdat (serialization)
+    - [ ] stbl
+        - [x] stts
+        - [x] ctts
+        - [x] stsd
+        - [x] stsz
+        - [x] stz2
+        - [x] stsc
+        - [x] stco
+        - [x] co64
+        - [x] stss
+        - [x] stsh
+        - [x] stdp
+        - [x] padb
+        - [ ] sgpd
+        - [ ] sbgp
     - [ ] edts
-    - [ ] elst
+        - [ ] elst
     - [ ] udta
     - [ ] cprt
     - [ ] mvex
     - [ ] mehd
     - [ ] trex
+    - [ ] free
 
 # Done
 - Dumping
