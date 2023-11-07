@@ -70,7 +70,7 @@ deserialize_trun :: proc(data: []byte) -> (trun: Trun, acc: u64) { // TODO
 
 serialize_trun :: proc(trun: Trun) -> (data: []byte) {
     fullbox_b := serialize_fullbox(trun.fullbox)
-    sample_count := tfhd.sample_count
+    sample_count := trun.sample_count
     sample_count_b := (^[4]byte)(&sample_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], sample_count_b[:]})
     opt1_flags := trun.fullbox.flags[0]
@@ -97,6 +97,7 @@ serialize_trun :: proc(trun: Trun) -> (data: []byte) {
                 sample_duration := trun.samples[i].sample_duration
                 sample_duration_b := (^[4]byte)(&sample_duration)^
                 data = slice.concatenate([][]byte{data[:], sample_duration_b[:]})
+            }
             if is_sample_size_present {
                 sample_size := trun.samples[i].sample_size
                 sample_size_b := (^[4]byte)(&sample_size)^

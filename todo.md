@@ -9,10 +9,10 @@
     [-] sidx (serialization)
     [-] moof (serialization)
         [x] mfhd
-        [-] traf (serialization)
+        [x] traf
             [x] tfhd
-            [-] trun (serialization)
-            [-] tfdt (serialization)
+            [x] trun
+            [x] tfdt
     [-] stbl
         [x] stts
         [x] ctts

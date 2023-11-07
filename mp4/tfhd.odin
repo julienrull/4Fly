@@ -49,7 +49,9 @@ deserialize_tfhd :: proc(data: []byte) -> (tfhd: Tfhd, acc: u64) { // TODO
         tfhd.default_sample_flags = (^u32be)(&data[acc])^
         acc += size_of(u32be)
     }
-    if duration_is_empty {}
+    // if duration_is_empty {
+
+    // }
     return tfhd, acc
 }
 
@@ -69,7 +71,7 @@ serialize_tfhd :: proc(tfhd: Tfhd) -> (data: []byte) {
     if is_base_data_offset_present {
         base_data_offset := tfhd.base_data_offset
         base_data_offset_b := (^[8]byte)(&base_data_offset)^
-        data = slice.concatenate([][]byte{data[:], first_sample_flags_b[:]})
+        data = slice.concatenate([][]byte{data[:], base_data_offset_b[:]})
     }
     if is_sample_description_index_present {
         sample_description_index := tfhd.sample_description_index
@@ -80,6 +82,7 @@ serialize_tfhd :: proc(tfhd: Tfhd) -> (data: []byte) {
         default_sample_duration := tfhd.default_sample_duration
         default_sample_duration_b := (^[4]byte)(&default_sample_duration)^
         data = slice.concatenate([][]byte{data[:], default_sample_duration_b[:]})
+    }
     if is_default_sample_size_present {
         default_sample_size := tfhd.default_sample_size
         default_sample_size_b := (^[4]byte)(&default_sample_size)^
@@ -90,6 +93,8 @@ serialize_tfhd :: proc(tfhd: Tfhd) -> (data: []byte) {
         default_sample_flags_b := (^[4]byte)(&default_sample_flags)^
         data = slice.concatenate([][]byte{data[:], default_sample_flags_b[:]})
     }
-    if duration_is_empty {}
+    // if duration_is_empty {
+
+    // }
     return data
 }
