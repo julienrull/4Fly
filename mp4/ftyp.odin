@@ -25,14 +25,14 @@ serialize_ftype :: proc(ftyp: Ftyp) -> (data: []byte){
     return data
 }
 
-deserialize_ftype :: proc(data: []byte) -> (Ftyp, u64) {
-    acc: u64 = 0
+deserialize_ftype :: proc(data: []byte) -> (ftyp: Ftyp, acc: u64) {
     box, box_size := deserialize_box(data)
-    acc = acc + box_size
-    major_brand := (^u32be)(&data[acc])^
-    acc = acc + size_of(u32be)
-    minor_version := (^u32be)(&data[acc])^
-    acc = acc + size_of(u32be)
+    ftyp.box = box
+    acc += box_size
+    ftyp.major_brand = (^u32be)(&data[acc])^
+    acc += size_of(u32be)
+    ftyp.minor_version = (^u32be)(&data[acc])^
+    acc += size_of(u32be)
     know_size := box_size + size_of(u32be)*2
     remain_size: u64 = 0
     if box.size == 1 {
@@ -41,15 +41,15 @@ deserialize_ftype :: proc(data: []byte) -> (Ftyp, u64) {
         remain_size = (u64)(box.size) - know_size
     }
     compatible_brands_b := data[acc:]
-    compatible_brands := make([]u32be, remain_size / size_of(u32be))
-    i:u64 = 0
+    ftyp.compatible_brands = make([]u32be, remain_size / size_of(u32be))
+    i: u64 = 0
     for i < remain_size / u64(size_of(u32be)) {
         brand := (^u32be)(&compatible_brands_b[i*4])^
-        compatible_brands[i] = brand
+        ftyp.compatible_brands[i] = brand
         i=i+1
     }
-    acc = acc + remain_size
-    return Ftyp{ box, major_brand, minor_version, compatible_brands }, acc
+    acc += remain_size
+    return ftyp, acc
 }
 
 create_fragment_styp :: proc() -> (data: []byte) {

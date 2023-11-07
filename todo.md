@@ -7,7 +7,7 @@
 [ ] deserialization / serialization
     [x] styp
     [-] sidx (serialization)
-    [-] moof (serialization)
+    [x] moof
         [x] mfhd
         [x] traf
             [x] tfhd
