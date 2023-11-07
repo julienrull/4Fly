@@ -3,41 +3,40 @@
 
 # TODO
 - Deserialization / Srilization
-
-- [x] Dump MP4 / M4S files
-- [ ] deserialization / serialization
-    - [x] styp (serialization)
-    - [x] sidx (serialization)
-    - [x] moof (serialization)
-    - [x] mfhd (serialization)
-    - [x] traf (serialization)
-    - [x] tfhd (serialization)
-    - [x] tfdt (serialization)
-    - [x] trun (serialization)
-    - [x] mdat (serialization)
-    - [ ] stbl
-        - [x] stts
-        - [x] ctts
-        - [x] stsd
-        - [x] stsz
-        - [x] stz2
-        - [x] stsc
-        - [x] stco
-        - [x] co64
-        - [x] stss
-        - [x] stsh
-        - [x] stdp
-        - [x] padb
-        - [ ] sgpd
-        - [ ] sbgp
-    - [ ] edts
-        - [ ] elst
-    - [ ] udta
-    - [ ] cprt
-    - [ ] mvex
-    - [ ] mehd
-    - [ ] trex
-    - [ ] free
+[x] Dump MP4 / M4S files
+[ ] deserialization / serialization
+    [x] styp
+    [-] sidx (serialization)
+    [-] moof (serialization)
+    [-] mfhd (serialization)
+    [-] traf (serialization)
+    [-] tfhd (serialization)
+    [-] tfdt (serialization)
+    [-] trun (serialization)
+    [-] stbl
+        [x] stts
+        [x] ctts
+        [x] stsd
+        [x] stsz
+        [x] stz2
+        [x] stsc
+        [x] stco
+        [x] co64
+        [x] stss
+        [x] stsh
+        [x] stdp
+        [x] padb
+        [ ] sgpd
+        [ ] sbgp
+    [x] edts
+        [x] elst
+    [x] udta
+        [x] cprt
+    [x] mvex
+        [x] mehd
+        [x] trex
+    [ ] free
+    [ ] mdat
 
 # Done
 - Dumping
