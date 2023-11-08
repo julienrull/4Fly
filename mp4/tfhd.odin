@@ -21,8 +21,8 @@ deserialize_tfhd :: proc(data: []byte) -> (tfhd: Tfhd, acc: u64) { // TODO
     acc += fullbox_size
     tfhd.track_ID = (^u32be)(&data[acc])^
     acc += size_of(u32be)
-    opt1_flags := tfhd.fullbox.flags[0]
-    opt3_flags := tfhd.fullbox.flags[2]
+    opt1_flags := tfhd.fullbox.flags[2]
+    opt3_flags := tfhd.fullbox.flags[0]
     is_base_data_offset_present := bool(opt1_flags & 0b00000001)
     is_sample_description_index_present := bool(opt1_flags & 0b00000010)
     is_default_sample_duration_present := bool(opt1_flags & 0b00001000)
@@ -60,8 +60,8 @@ serialize_tfhd :: proc(tfhd: Tfhd) -> (data: []byte) {
     track_ID := tfhd.track_ID
     track_ID_b := (^[4]byte)(&track_ID)^
     data = slice.concatenate([][]byte{fullbox_b[:], track_ID_b[:]})
-    opt1_flags := tfhd.fullbox.flags[0]
-    opt3_flags := tfhd.fullbox.flags[2]
+    opt1_flags := tfhd.fullbox.flags[2]
+    opt3_flags := tfhd.fullbox.flags[0]
     is_base_data_offset_present := bool(opt1_flags & 0b00000001)
     is_sample_description_index_present := bool(opt1_flags & 0b00000010)
     is_default_sample_duration_present := bool(opt1_flags & 0b00001000)

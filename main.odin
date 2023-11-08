@@ -20,7 +20,10 @@ main :: proc() {
     defer delete(buffer)
     os.read(f, buffer)
 
-    mp4.dump(buffer, u64(len(buffer)))
+    // mp4.dump(buffer, u64(len(buffer)))
+    frag, fraf_size := mp4.deserialize_fragment(buffer)
+    data, err_masrshal := json.marshal(frag)
+    fmt.println(string(data))
 }
 
 

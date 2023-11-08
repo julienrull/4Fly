@@ -6,7 +6,7 @@
 [x] Dump MP4 / M4S files
 [ ] deserialization / serialization
     [x] styp
-    [-] sidx (serialization)
+    [x] sidx
     [x] moof
         [x] mfhd
         [x] traf

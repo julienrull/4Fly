@@ -28,7 +28,7 @@ deserialize_trun :: proc(data: []byte) -> (trun: Trun, acc: u64) { // TODO
     acc += fullbox_size
     trun.sample_count = (^u32be)(&data[acc])^
     acc += size_of(u32be)
-    opt1_flags := trun.fullbox.flags[0]
+    opt1_flags := trun.fullbox.flags[2]
     is_data_offset_present := bool(opt1_flags & 0b00000001)
     is_first_sample_flags_present := bool(opt1_flags & 0b00000100)
     if is_data_offset_present {
@@ -73,7 +73,7 @@ serialize_trun :: proc(trun: Trun) -> (data: []byte) {
     sample_count := trun.sample_count
     sample_count_b := (^[4]byte)(&sample_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], sample_count_b[:]})
-    opt1_flags := trun.fullbox.flags[0]
+    opt1_flags := trun.fullbox.flags[2]
     is_data_offset_present := bool(opt1_flags & 0b00000001)
     is_first_sample_flags_present := bool(opt1_flags & 0b00000100)
     if is_data_offset_present {
