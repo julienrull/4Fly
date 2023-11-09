@@ -9,6 +9,7 @@ import "core:strings"
 import "mp4"
 
 main :: proc() {
+
     args := os.args[1:]
     size := os.file_size_from_path(args[0])
     f, ferr := os.open(args[0])
@@ -20,10 +21,10 @@ main :: proc() {
     defer delete(buffer)
     os.read(f, buffer)
 
-    // mp4.dump(buffer, u64(len(buffer)))
-    frag, fraf_size := mp4.deserialize_fragment(buffer)
-    data, err_masrshal := json.marshal(frag)
-    fmt.println(string(data))
+    mp4.dump(buffer, u64(len(buffer)))
+    // frag, fraf_size := mp4.deserialize_fragment(buffer)
+    // data, err_masrshal := json.marshal(frag)
+    // fmt.println(string(data))
 }
 
 

@@ -15,13 +15,13 @@ deserialize_traf :: proc(data: []byte) -> (traf: Traf, acc: u64) {
     box, box_size := deserialize_box(data)
     traf.box = box
     acc += box_size
-    tfhd, tfhd_size := deserialize_tfhd(data[box_size:])
+    tfhd, tfhd_size := deserialize_tfhd(data[acc:])
     traf.tfhd = tfhd
     acc += tfhd_size
-    tfdt, tfdt_size := deserialize_tfdt(data[box_size:])
+    tfdt, tfdt_size := deserialize_tfdt(data[acc:])
     traf.tfdt = tfdt
     acc += tfdt_size
-    trun, trun_size := deserialize_trun(data[box_size + tfhd_size:])
+    trun, trun_size := deserialize_trun(data[acc:])
     traf.trun = trun
     acc += trun_size
     return traf, acc

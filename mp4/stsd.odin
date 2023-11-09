@@ -30,9 +30,14 @@ deserialize_stsd :: proc(data: []byte, handler_type: string) -> (stsd: Stsd, acc
             case "soun":
                 append(&(stsd.audioSampleEntries), (^AudioSampleEntry)(&data[acc])^)
                 acc += size_of(AudioSampleEntry)
-        }            
+        }
     }
     return stsd, acc
+}
+
+serialize_stsd :: proc(stsd: Stsd, handler_type: string) -> (data: []byte) {
+    panic("[TODO] - serialize_stsd() not implemented")
+    //return data
 }
 
 
@@ -60,7 +65,7 @@ VisualSampleEntry :: struct {
      frame_count:           u16be, // = 1;
      compressorname:        [32]byte, // string[32]
      depth:                 u16be, // = 0x0018;
-     pre_defined3:          i16be // = -1; 
+     pre_defined3:          i16be // = -1;
 }
 
 AudioSampleEntry :: struct {

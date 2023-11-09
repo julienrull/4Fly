@@ -13,10 +13,10 @@
             [x] tfhd
             [x] trun
             [x] tfdt
-    [-] stbl
+    [-] stbl ("stsd" and "stdp" need deserialize and serialize need additional sibling values)
         [x] stts
         [x] ctts
-        [x] stsd
+        [-] stsd (seserialize)
         [x] stsz
         [x] stz2
         [x] stsc
@@ -35,6 +35,7 @@
     [x] mvex
         [x] mehd
         [x] trex
+
     [ ] free
     [ ] mdat
 
