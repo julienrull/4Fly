@@ -1,0 +1,107 @@
+[moof] size=8+816
+  [mfhd] size=12+4
+    sequence number = 3
+  [traf] size=8+792
+    [tfhd] size=12+16, flags=2002a
+      track ID = 1
+      sample description index = 1
+      default sample duration = 500
+      default sample flags = 1010000
+    [tfdt] size=12+8, version=1
+      base media decode time = 45000
+    [trun] size=12+732, version=1, flags=a05
+      sample count = 90
+      data offset = 832
+      first sample flags = 2000000
+      entries:
+        (       0) sample_size = 265941, sample_composition_time_offset = 0
+        (       1) sample_size = 107218, sample_composition_time_offset = 1500
+        (       2) sample_size = 20819, sample_composition_time_offset = 0
+        (       3) sample_size = 13135, sample_composition_time_offset = 4294966296
+        (       4) sample_size = 10423, sample_composition_time_offset = 4294966796
+        (       5) sample_size = 91423, sample_composition_time_offset = 1500
+        (       6) sample_size = 19779, sample_composition_time_offset = 0
+        (       7) sample_size = 9861, sample_composition_time_offset = 4294966296
+        (       8) sample_size = 11155, sample_composition_time_offset = 4294966796
+        (       9) sample_size = 84957, sample_composition_time_offset = 1500
+        (      10) sample_size = 19011, sample_composition_time_offset = 0
+        (      11) sample_size = 11088, sample_composition_time_offset = 4294966296
+        (      12) sample_size = 10167, sample_composition_time_offset = 4294966796
+        (      13) sample_size = 115844, sample_composition_time_offset = 1500
+        (      14) sample_size = 22489, sample_composition_time_offset = 0
+        (      15) sample_size = 10783, sample_composition_time_offset = 4294966296
+        (      16) sample_size = 14728, sample_composition_time_offset = 4294966796
+        (      17) sample_size = 91714, sample_composition_time_offset = 1500
+        (      18) sample_size = 18428, sample_composition_time_offset = 0
+        (      19) sample_size = 13962, sample_composition_time_offset = 4294966296
+        (      20) sample_size = 15953, sample_composition_time_offset = 4294966796
+        (      21) sample_size = 90082, sample_composition_time_offset = 1500
+        (      22) sample_size = 17105, sample_composition_time_offset = 0
+        (      23) sample_size = 13299, sample_composition_time_offset = 4294966296
+        (      24) sample_size = 9398, sample_composition_time_offset = 4294966796
+        (      25) sample_size = 87490, sample_composition_time_offset = 1500
+        (      26) sample_size = 21084, sample_composition_time_offset = 0
+        (      27) sample_size = 13231, sample_composition_time_offset = 4294966296
+        (      28) sample_size = 11433, sample_composition_time_offset = 4294966796
+        (      29) sample_size = 72309, sample_composition_time_offset = 1500
+        (      30) sample_size = 19000, sample_composition_time_offset = 0
+        (      31) sample_size = 9094, sample_composition_time_offset = 4294966296
+        (      32) sample_size = 10040, sample_composition_time_offset = 4294966796
+        (      33) sample_size = 55472, sample_composition_time_offset = 1500
+        (      34) sample_size = 16606, sample_composition_time_offset = 0
+        (      35) sample_size = 9142, sample_composition_time_offset = 4294966296
+        (      36) sample_size = 9189, sample_composition_time_offset = 4294966796
+        (      37) sample_size = 304721, sample_composition_time_offset = 1500
+        (      38) sample_size = 51874, sample_composition_time_offset = 0
+        (      39) sample_size = 18062, sample_composition_time_offset = 4294966296
+        (      40) sample_size = 12570, sample_composition_time_offset = 4294966796
+        (      41) sample_size = 120718, sample_composition_time_offset = 1500
+        (      42) sample_size = 23230, sample_composition_time_offset = 0
+        (      43) sample_size = 10472, sample_composition_time_offset = 4294966296
+        (      44) sample_size = 9323, sample_composition_time_offset = 4294966796
+        (      45) sample_size = 117438, sample_composition_time_offset = 1500
+        (      46) sample_size = 22974, sample_composition_time_offset = 0
+        (      47) sample_size = 8981, sample_composition_time_offset = 4294966296
+        (      48) sample_size = 10607, sample_composition_time_offset = 4294966796
+        (      49) sample_size = 108067, sample_composition_time_offset = 1500
+        (      50) sample_size = 24501, sample_composition_time_offset = 0
+        (      51) sample_size = 9381, sample_composition_time_offset = 4294966296
+        (      52) sample_size = 9165, sample_composition_time_offset = 4294966796
+        (      53) sample_size = 112469, sample_composition_time_offset = 1500
+        (      54) sample_size = 22259, sample_composition_time_offset = 0
+        (      55) sample_size = 11228, sample_composition_time_offset = 4294966296
+        (      56) sample_size = 10569, sample_composition_time_offset = 4294966796
+        (      57) sample_size = 112522, sample_composition_time_offset = 1500
+        (      58) sample_size = 26789, sample_composition_time_offset = 0
+        (      59) sample_size = 11119, sample_composition_time_offset = 4294966296
+        (      60) sample_size = 11196, sample_composition_time_offset = 4294966796
+        (      61) sample_size = 128798, sample_composition_time_offset = 1500
+        (      62) sample_size = 26159, sample_composition_time_offset = 0
+        (      63) sample_size = 15992, sample_composition_time_offset = 4294966296
+        (      64) sample_size = 12245, sample_composition_time_offset = 4294966796
+        (      65) sample_size = 113138, sample_composition_time_offset = 1500
+        (      66) sample_size = 23684, sample_composition_time_offset = 0
+        (      67) sample_size = 15607, sample_composition_time_offset = 4294966296
+        (      68) sample_size = 12171, sample_composition_time_offset = 4294966796
+        (      69) sample_size = 103845, sample_composition_time_offset = 1500
+        (      70) sample_size = 23738, sample_composition_time_offset = 0
+        (      71) sample_size = 13008, sample_composition_time_offset = 4294966296
+        (      72) sample_size = 13751, sample_composition_time_offset = 4294966796
+        (      73) sample_size = 107165, sample_composition_time_offset = 1500
+        (      74) sample_size = 26602, sample_composition_time_offset = 0
+        (      75) sample_size = 12079, sample_composition_time_offset = 4294966296
+        (      76) sample_size = 11414, sample_composition_time_offset = 4294966796
+        (      77) sample_size = 112842, sample_composition_time_offset = 1500
+        (      78) sample_size = 23949, sample_composition_time_offset = 0
+        (      79) sample_size = 14420, sample_composition_time_offset = 4294966296
+        (      80) sample_size = 11372, sample_composition_time_offset = 4294966796
+        (      81) sample_size = 126139, sample_composition_time_offset = 1500
+        (      82) sample_size = 26703, sample_composition_time_offset = 0
+        (      83) sample_size = 12747, sample_composition_time_offset = 4294966296
+        (      84) sample_size = 17277, sample_composition_time_offset = 4294966796
+        (      85) sample_size = 107256, sample_composition_time_offset = 1500
+        (      86) sample_size = 20575, sample_composition_time_offset = 0
+        (      87) sample_size = 11896, sample_composition_time_offset = 4294966296
+        (      88) sample_size = 12060, sample_composition_time_offset = 4294966796
+        (      89) sample_size = 44784, sample_composition_time_offset = 0
+[mdat] size=8+3824503

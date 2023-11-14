@@ -1,6 +1,6 @@
 package main
 
-import json "core:encoding/json"
+import "core:encoding/json"
 import "core:fmt"
 import "core:mem"
 import "core:os"
@@ -9,22 +9,20 @@ import "core:strings"
 import "mp4"
 
 main :: proc() {
-
-    args := os.args[1:]
-    size := os.file_size_from_path(args[0])
-    f, ferr := os.open(args[0])
-    if ferr != 0 {
-    	return
-    }
-    defer os.close(f)
-    buffer, err := mem.alloc_bytes((int)(size))
-    defer delete(buffer)
-    os.read(f, buffer)
-
-    mp4.dump(buffer, u64(len(buffer)))
-    // frag, fraf_size := mp4.deserialize_fragment(buffer)
-    // data, err_masrshal := json.marshal(frag)
-    // fmt.println(string(data))
+	args := os.args[1:]
+	size := os.file_size_from_path(args[0])
+	f, ferr := os.open(args[0])
+	if ferr != 0 {
+		return
+	}
+	defer os.close(f)
+	buffer, err := mem.alloc_bytes((int)(size))
+	defer delete(buffer)
+	os.read(f, buffer)
+	mp4.dump(buffer, u64(len(buffer)))
+	// frag, fraf_size := mp4.deserialize_fragment(buffer)
+	// data, err_masrshal := json.marshal(frag)
+	// fmt.println(string(data))
 }
 
 
