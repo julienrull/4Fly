@@ -45,7 +45,7 @@ deserialize_mdhd :: proc(data: []byte) -> (mdhd: Mdhd, acc: u64){
     mdhd.pad = byte(packed & 0x0001) 
     mdhd.language[2] = byte((packed >> 1) & 0x1F)
     mdhd.language[1] = byte((packed >> 6) & 0x1F)
-    mdhd.language[0] = byte((packed >> 12) & 0x1F)  
+    mdhd.language[0] = byte((packed >> 11) & 0x1F)  
     acc += size_of(u16be)
     mdhd.pre_defined = (^u16be)(&data[acc])^
     acc += size_of(u16be)

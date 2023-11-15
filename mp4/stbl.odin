@@ -21,7 +21,7 @@ Stbl :: struct { // minf -> stbl
     // sbgp: Sbgp
 }
 
-deserialize_stbl :: proc(data: []byte) -> (stbl: Stbl, acc: u64) {
+deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: u64) {
     box, box_size := deserialize_box(data)
     stbl.box = box
     acc += box_size
@@ -38,7 +38,7 @@ deserialize_stbl :: proc(data: []byte) -> (stbl: Stbl, acc: u64) {
                 stbl.ctts = atom
                 acc += atom_size
             case "stsd":
-                atom, atom_size := deserialize_stsd(data[acc:], "") // TODO
+                atom, atom_size := deserialize_stsd(data[acc:], handle_type) // TODO
                 stbl.stsd = atom
                 acc += atom_size
             case "stsz":
@@ -70,7 +70,7 @@ deserialize_stbl :: proc(data: []byte) -> (stbl: Stbl, acc: u64) {
                 stbl.stsh = atom
                 acc += atom_size
             case "stdp":
-                atom, atom_size := deserialize_stdp(data[acc:], 0) // TODO
+                atom, atom_size := deserialize_stdp(data[acc:], stbl.stsz.sample_count) // TODO
                 stbl.stdp = atom
                 acc += atom_size
             case "padb":
@@ -94,7 +94,7 @@ deserialize_stbl :: proc(data: []byte) -> (stbl: Stbl, acc: u64) {
     return stbl, acc
 }
 
-serialize_stbl :: proc(stbl: Stbl) -> (data: []byte) {
+serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
     box_b := serialize_box(stbl.box)
     data = slice.concatenate([][]byte{[]byte{}, box_b[:]})
     name := stbl.stts.fullbox.box.type
@@ -109,7 +109,7 @@ serialize_stbl :: proc(stbl: Stbl) -> (data: []byte) {
     }
     name = stbl.stsd.fullbox.box.type
     if to_string(&name) == "stsd" {
-        bin := serialize_stsd(stbl.stsd, "") // TODO
+        bin := serialize_stsd(stbl.stsd, handle_type) // TODO
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = stbl.stsz.fullbox.box.type
@@ -149,7 +149,7 @@ serialize_stbl :: proc(stbl: Stbl) -> (data: []byte) {
     }
     name = stbl.stdp.fullbox.box.type
     if to_string(&name) == "stdp" {
-        bin := serialize_stdp(stbl.stdp, 0) // TODO
+        bin := serialize_stdp(stbl.stdp, stbl.stsz.sample_count) // TODO
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = stbl.padb.fullbox.box.type

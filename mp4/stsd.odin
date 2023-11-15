@@ -13,7 +13,7 @@ Stsd :: struct { // stbl -> stsd
 }
 
 
-deserialize_stsd :: proc(data: []byte, handler_type: string) -> (stsd: Stsd, acc: u64) {
+deserialize_stsd :: proc(data: []byte, handler_type: u32be) -> (stsd: Stsd, acc: u64) {
     fullbox, fullbox_size       :=  deserialize_fullbox(data[acc:])
     stsd.fullbox                = fullbox
     acc                         += fullbox_size
@@ -22,8 +22,10 @@ deserialize_stsd :: proc(data: []byte, handler_type: string) -> (stsd: Stsd, acc
     stsd.hintSampleEntries      = make([dynamic]HintSampleEntry, 0, 6)
     stsd.visualSampleEntries    = make([dynamic]VisualSampleEntry, 0, 6)
     stsd.audioSampleEntries     = make([dynamic]AudioSampleEntry, 0, 6)
+    handler_type_c  := handler_type
+    handler_type_s := to_string(&handler_type_c)
     for i:=0; i<int(stsd.entry_count); i+=1 {
-        switch handler_type {
+        switch handler_type_s {
             // case "hint":
             //     append(&(stsd.hintSampleEntries), (^HintSampleEntry)(&data[acc])^)
             //     acc += size_of(HintSampleEntry)
@@ -50,7 +52,7 @@ deserialize_stsd :: proc(data: []byte, handler_type: string) -> (stsd: Stsd, acc
     return stsd, acc
 }
 
-serialize_stsd :: proc(stsd: Stsd, handler_type: string) -> (data: []byte) {
+serialize_stsd :: proc(stsd: Stsd, handler_type: u32be) -> (data: []byte) {
     //panic("[TODO] - serialize_stsd() not implemented")
     box_b := serialize_fullbox(stsd.fullbox)
     entry_count := stsd.entry_count

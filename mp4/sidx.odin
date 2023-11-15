@@ -60,7 +60,7 @@ deserialize_sidx :: proc(data: []byte) ->  (sidx: Sidx, acc: u64) {
         acc += size_of(u32be)
         tmp = (^u32be)(&data[acc])^
         sidx.items[i].starts_with_SAP = (byte)((tmp & 0x00000001))
-        sidx.items[i].SAP_type = (byte)((tmp & 0x000000E0))
+        sidx.items[i].SAP_type = (byte)(((tmp >> 1) & 0x00000007))
         sidx.items[i].SAP_delta_time = tmp >> 4
         acc += size_of(u32be)
     }

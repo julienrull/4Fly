@@ -1,5 +1,7 @@
 package mp4
 
+import "core:slice"
+
 // MediaDataBox
 Mdat :: struct { // mdat
     box:    Box,
@@ -25,4 +27,9 @@ deserialize_mdat :: proc(data: []byte) -> (Mdat, u64) { // TODO
         box,
         //mdat_data
     }, acc
+}
+
+serialize_mdat :: proc(mdat: Mdat) -> ([]byte) { // TODO
+    box_b := serialize_box(mdat.box)
+    return box_b
 }

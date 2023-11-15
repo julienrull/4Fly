@@ -12,6 +12,7 @@ Moov :: struct { // moov
 
 
 deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
+    moov.traks =  make([dynamic]Trak, 0, 16)
     box, box_size := deserialize_box(data)
     moov.box = box
     acc += box_size

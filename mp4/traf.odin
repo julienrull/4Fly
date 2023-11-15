@@ -15,15 +15,29 @@ deserialize_traf :: proc(data: []byte) -> (traf: Traf, acc: u64) {
     box, box_size := deserialize_box(data)
     traf.box = box
     acc += box_size
-    tfhd, tfhd_size := deserialize_tfhd(data[acc:])
-    traf.tfhd = tfhd
-    acc += tfhd_size
-    tfdt, tfdt_size := deserialize_tfdt(data[acc:])
-    traf.tfdt = tfdt
-    acc += tfdt_size
-    trun, trun_size := deserialize_trun(data[acc:])
-    traf.trun = trun
-    acc += trun_size
+    sub_box, sub_box_size := deserialize_box(data[acc:])
+    name := to_string(&sub_box.type)
+    for  acc < u64(box.size) {
+        switch name {
+            case "tfhd":
+                tfhd, tfhd_size := deserialize_tfhd(data[acc:])
+                traf.tfhd = tfhd
+                acc += tfhd_size
+            case "tfdt":
+                tfdt, tfdt_size := deserialize_tfdt(data[acc:])
+                traf.tfdt = tfdt
+                acc += tfdt_size
+            case "trun":
+                trun, trun_size := deserialize_trun(data[acc:])
+                traf.trun = trun
+                acc += trun_size
+            case:
+                panic("moov sub box not implemented")
+        }
+        sub_box, sub_box_size = deserialize_box(data[acc:])
+        name := to_string(&sub_box.type)
+    }
+
     return traf, acc
 }
 

@@ -14,6 +14,14 @@ Hdlr :: struct { // mdia or meta -> hdlr
 deserialize_hdlr :: proc(data: []byte) -> (hdlr: Hdlr, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data[acc:])
     hdlr.fullbox = fullbox
+    size: u64
+    if fullbox.box.size == 1 {
+        size = u64(fullbox.box.largesize)
+    }else if fullbox.box.size == 0 {
+        size = u64(len(data))
+    }else {
+        size = u64(fullbox.box.size)
+    }
     acc += fullbox_size
 
     hdlr.pre_defined = (^u32be)(&data[acc])^
@@ -25,7 +33,7 @@ deserialize_hdlr :: proc(data: []byte) -> (hdlr: Hdlr, acc: u64) {
     hdlr.reserved = (^[3]u32be)(&data[acc])^
     acc += size_of([3]u32be)
 
-    remain := u64(fullbox.box.size) - acc 
+    remain := size - acc 
 
     hdlr.name = data[acc:acc + remain]
 

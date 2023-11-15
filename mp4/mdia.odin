@@ -26,8 +26,8 @@ deserialize_mdia :: proc(data: []byte) -> (mdia: Mdia, acc: u64) {
                 atom, atom_size := deserialize_hdlr(data[acc:])
                 mdia.hdlr = atom
                 acc += atom_size
-            case "minf":
-                atom, atom_size := deserialize_minf(data[acc:]) // TODO
+            case "minf": // TODO: case if minf is found before hdlr
+                atom, atom_size := deserialize_minf(data[acc:], mdia.hdlr.handler_type)
                 mdia.minf = atom
                 acc += atom_size
             case:
@@ -54,7 +54,7 @@ serialize_mdia :: proc(mdia: Mdia) -> (data: []byte) {
     }
     name = mdia.minf.box.type
     if to_string(&name) == "minf" {
-        bin := serialize_minf(mdia.minf) // TODO
+        bin := serialize_minf(mdia.minf, mdia.hdlr.handler_type)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     return data

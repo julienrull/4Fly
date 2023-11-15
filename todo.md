@@ -7,7 +7,8 @@
 ## Deserialization / Srilization
 
 - [x] Dump MP4 / M4S files
-- [-] Fragment deserialization / serialization (need some modularity rewriting)
+
+- [-] Fragment deserialization / serialization
   - [x] styp
   - [x] sidx
   - [x] moof
@@ -41,7 +42,7 @@
           - [-] stbl
             - [x] stts
             - [x] ctts
-            - [-] stsd
+            - [x] stsd
             - [x] stsz
             - [x] stz2
             - [x] stsc
@@ -49,7 +50,7 @@
             - [x] co64
             - [x] stss
             - [x] stsh
-            - [-] stdp
+            - [x] stdp
             - [x] padb
             - [ ] sgpd
             - [ ] sbgp
@@ -63,9 +64,11 @@
   - [ ] free
   - [x] mdat
 
-  - [ ] box.Size == 0, 1 or size
-  - [ ] check if all boxes with bitwises are corrcect because of Big endian format
-  - [ ] stbl need hdlr type info (vide, soun and hint) info  sub boxes "stsd" and "stdp"
+  - [x] box.Size == 0, 1 or size
+  - [x] check if all boxes with bitwises are corrcect because of Big endian format
+  - [x] stbl need hdlr type info (vide, soun and hint) info  sub boxes "stsd" and "stdp"
+  - [ ] fragment boxes  need some modularity rewriting
+  - [ ] "sgpd" and "sbgp"
 
 # Done
 
