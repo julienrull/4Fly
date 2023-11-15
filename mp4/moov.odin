@@ -1,10 +1,64 @@
 package mp4
 
+import "core:slice"
 
 // MovieBox
 Moov :: struct { // moov
     box:            Box,
-    movieHeaderBox: Mvhd,
-    traks:          []Trak,
+    mvhd: Mvhd,
+    traks:          [dynamic]Trak,
     udta: Udta
+}
+
+
+deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
+    box, box_size := deserialize_box(data)
+    moov.box = box
+    acc += box_size
+    sub_box, sub_box_size := deserialize_box(data[acc:])
+    name := to_string(&sub_box.type)
+    for  acc < u64(box.size) {
+        switch name {
+            case "mvhd":
+                atom, atom_size := deserialize_mvhd(data[acc:])
+                moov.mvhd = atom
+                acc += atom_size
+            case "trak":
+                atom, atom_size := deserialize_trak(data[acc:])
+                append(&moov.traks, atom)
+                acc += atom_size
+            case "udta":
+                atom, atom_size := deserialize_udta(data[acc:]) // TODO
+                moov.udta = atom
+                acc += atom_size
+            case:
+                panic("moov sub box not implemented")
+        }
+        sub_box, sub_box_size = deserialize_box(data[acc:])
+        name := to_string(&sub_box.type)
+    }
+    return moov, acc
+}
+
+serialize_moov :: proc(moov: Moov) -> (data: []byte) {
+    box_b := serialize_box(moov.box)
+    data = slice.concatenate([][]byte{[]byte{}, box_b[:]})
+    name := moov.mvhd.fullbox.box.type
+    if to_string(&name) == "mvhd" {
+        bin := serialize_mvhd(moov.mvhd)
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
+    
+    if len(moov.traks) > 0 {
+        for i:=0; i<len(moov.traks); i+=1 {
+            bin := serialize_trak(moov.traks[i])
+            data = slice.concatenate([][]byte{data[:], bin[:]})
+        }
+    }
+    name = moov.udta.box.type
+    if to_string(&name) == "udta" {
+        bin := serialize_udta(moov.udta) // TODO
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
+    return data
 }

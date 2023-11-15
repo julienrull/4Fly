@@ -22,15 +22,15 @@
 - [ ] Video deserialization / serialization
 
   - [x] ftyp
-  - [ ] moov
-    - [ ] mvhd
-    - [ ] trak
-      - [ ] tkhd
+  - [x] moov
+    - [x] mvhd
+    - [x] trak
+      - [x] tkhd
       - [x] edts
         - [x] elst
-      - [ ] mdia
-        - [ ] mdhd
-        - [ ] hdlr
+      - [x] mdia
+        - [x] mdhd
+        - [x] hdlr
         - [x] minf
           - [x] nmhd
           - [x] hmhd
@@ -38,10 +38,10 @@
           - [x] vmhd
           - [x] dinf
             - [x] dref
-          - [-] stbl ("stsd" and "stdp" need deserialize and serialize need additional sibling values)
+          - [-] stbl
             - [x] stts
             - [x] ctts
-            - [x] stsd
+            - [-] stsd
             - [x] stsz
             - [x] stz2
             - [x] stsc
@@ -49,7 +49,7 @@
             - [x] co64
             - [x] stss
             - [x] stsh
-            - [x] stdp
+            - [-] stdp
             - [x] padb
             - [ ] sgpd
             - [ ] sbgp
@@ -63,11 +63,13 @@
   - [ ] free
   - [x] mdat
 
-  - [ ] box.Size == 0, 1, size
+  - [ ] box.Size == 0, 1 or size
+  - [ ] check if all boxes with bitwises are corrcect because of Big endian format
+  - [ ] stbl need hdlr type info (vide, soun and hint) info  sub boxes "stsd" and "stdp"
 
 # Done
 
-## Dumping
+- Dumping
 
 # Note
 
