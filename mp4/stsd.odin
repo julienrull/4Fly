@@ -2,6 +2,7 @@ package mp4
 
 import "core:mem"
 import "core:slice"
+import "core:fmt"
 
 // SampleDescriptionBox
 Stsd :: struct { // stbl -> stsd
@@ -24,31 +25,49 @@ deserialize_stsd :: proc(data: []byte, handler_type: u32be) -> (stsd: Stsd, acc:
     stsd.audioSampleEntries     = make([dynamic]AudioSampleEntry, 0, 6)
     handler_type_c  := handler_type
     handler_type_s := to_string(&handler_type_c)
-    for i:=0; i<int(stsd.entry_count); i+=1 {
+    fmt.println(handler_type_s)
+    for i:=0; i<=int(stsd.entry_count); i+=1 {
         switch handler_type_s {
             // case "hint":
             //     append(&(stsd.hintSampleEntries), (^HintSampleEntry)(&data[acc])^)
             //     acc += size_of(HintSampleEntry)
             case "vide":
                 box, box_size :=  deserialize_box(data[acc:])
-                vide_size := size_of(VisualSampleEntry) - size_of(box)
+                acc += box_size
                 vide := VisualSampleEntry{}
                 vide.box = box
+                vide_size := size_of(VisualSampleEntry) - size_of(Box)
                 vide_b := mem.ptr_to_bytes(&vide, size_of(VisualSampleEntry))
-                new_vide_b := slice.concatenate([][]byte{vide_b[:size_of(box)], data[acc+box_size:vide_size]})
-                append(&(stsd.visualSampleEntries), (^VisualSampleEntry)(&new_vide_b[0])^)
-                acc += box_size + u64(vide_size)
+                new_vide_b := slice.concatenate([][]byte{vide_b[:size_of(Box)], data[acc:acc + u64(vide_size)]})
+                new_vide := (^VisualSampleEntry)(&new_vide_b[0])^
+                append(&(stsd.visualSampleEntries), new_vide)
+                acc += u64(vide_size)
+                // fmt.println(new_vide)
+                // fmt.println("box.size", box.size)
+                // fmt.println("box.largesize", box.largesize)
+                // fmt.println("box_size", box_size)
+                // fmt.println("vide_size", vide_size)
+                // fmt.println("acc", acc)
+                // fmt.println("size_of(VisualSampleEntry)", size_of(VisualSampleEntry))
+                // fmt.println("stsd.entry_count", stsd.entry_count)
+                //fmt.println("vide_size x2", vide_size*2)
             case "soun":
                 box, box_size :=  deserialize_box(data[acc:])
-                soun_size := size_of(AudioSampleEntry) - size_of(box)
+                acc += box_size
                 soun := AudioSampleEntry{}
                 soun.box = box
+                soun_size := size_of(AudioSampleEntry) - size_of(Box)
                 soun_b := mem.ptr_to_bytes(&soun, size_of(AudioSampleEntry))
-                new_soun_b := slice.concatenate([][]byte{soun_b[:size_of(box)], data[acc+box_size:soun_size]})
-                append(&(stsd.audioSampleEntries), (^AudioSampleEntry)(&new_soun_b[0])^)
-                acc += box_size + u64(soun_size)
+                new_soun_b := slice.concatenate([][]byte{soun_b[:size_of(Box)], data[acc:acc + u64(soun_size)]})
+                new_soun := (^AudioSampleEntry)(&new_soun_b[0])^
+                append(&(stsd.audioSampleEntries), new_soun)
+                acc += u64(soun_size)
         }
     }
+    //fmt.println(name)
+    // fmt.println("\n")
+    fmt.println(fullbox.box.size)
+    fmt.println(acc)
     return stsd, acc
 }
 

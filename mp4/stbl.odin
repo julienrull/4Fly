@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:fmt"
 
 // SampleTableBox
 Stbl :: struct { // minf -> stbl
@@ -27,7 +28,7 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
     acc += box_size
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
-    for  acc < u64(box.size) {
+    for  acc < u64(box.size) {    
         switch name {
             case "stts":
                 atom, atom_size := deserialize_stts(data[acc:])

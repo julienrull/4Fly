@@ -1,7 +1,7 @@
 package mp4
 
 import "core:slice"
-import "core:mem"
+import "core:fmt"
 
 //UserDataBox
 Udta :: struct{ // moov -> udta
@@ -16,6 +16,7 @@ deserialize_udta :: proc(data: []byte) -> (udta: Udta, acc: u64) {
     cprt, cprt_size := deserialize_cprt(data[acc:])
     udta.cprt = cprt
     acc += cprt_size
+    
     return udta, acc
 }
 

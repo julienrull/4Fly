@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:fmt"
 
 // MovieBox
 Moov :: struct { // moov
@@ -9,7 +10,6 @@ Moov :: struct { // moov
     traks:          [dynamic]Trak,
     udta: Udta
 }
-
 
 deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
     moov.traks =  make([dynamic]Trak, 0, 16)
@@ -28,6 +28,9 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_trak(data[acc:])
                 append(&moov.traks, atom)
                 acc += atom_size
+                // fmt.println(name)
+                // fmt.println(atom.box.size)
+                // fmt.println(atom_size)
             case "udta":
                 atom, atom_size := deserialize_udta(data[acc:]) // TODO
                 moov.udta = atom

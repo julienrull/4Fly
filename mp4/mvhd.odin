@@ -15,7 +15,7 @@ Mvhd :: struct {  // moov -> mvhd
     rate:                       i32be,
     volume:                     i16be,
     reserved:                   i16be,
-    reserved2: [2]i32be,
+    reserved2: [2]u32be,
     matrixx: [9]i32be,
     pre_defined: [6]i32be,
     next_track_ID: u32be,
@@ -55,14 +55,14 @@ deserialize_mvhd :: proc(data: []byte) -> (mvhd: Mvhd, acc: u64){
     mvhd.reserved = (^i16be)(&data[acc])^
     acc += size_of(i16be)
 
-    mvhd.reserved2 = (^[2]i32be)(&data[acc])^
-    acc += size_of([2]i32be)
+    mvhd.reserved2 = (^[2]u32be)(&data[acc])^
+    acc += size_of([2]u32be)
 
     mvhd.matrixx = (^[9]i32be)(&data[acc])^
     acc += size_of([9]i32be)
 
     mvhd.pre_defined = (^[6]i32be)(&data[acc])^
-    acc += size_of([9]i32be)
+    acc += size_of([6]i32be)
 
     mvhd.next_track_ID = (^u32be)(&data[acc])^
     acc += size_of(u32be)

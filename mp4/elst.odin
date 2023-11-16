@@ -1,7 +1,7 @@
 package mp4
 
 import "core:slice"
-import "core:mem"
+import "core:fmt"
 
 // EditListBox
 Elst :: struct { // edts -> elst
@@ -42,6 +42,7 @@ deserialize_elst :: proc(data: []byte) -> (elst: Elst, acc: u64) {
         elst.entries[i].media_rate_integer = (^i16be)(&data[acc])^
         acc += size_of(i16be)
         elst.entries[i].media_rate_fraction = (^i16be)(&data[acc])^
+        acc += size_of(i16be)
     }
     return elst, acc
 }

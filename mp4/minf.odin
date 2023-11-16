@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:fmt"
 
 // MediaInformationBox
 Minf :: struct { // mdia -> minf
@@ -20,25 +21,25 @@ deserialize_minf :: proc(data: []byte, handle_type: u32be) -> (minf: Minf, acc: 
     minf.box = box
     acc += box_size
     sub_box, sub_box_size := deserialize_box(data[acc:])
-    type_s := to_string(&box.type)
+    name := to_string(&sub_box.type)
     for  acc < u64(box.size) {
-        switch type_s {
+        switch name {
             case "vmhd":
-                vmhd, vmhd_size := deserialize_vmhd(data[acc:])
-                minf.vmhd = vmhd
-                acc += vmhd_size
+                atom, atom_size := deserialize_vmhd(data[acc:])
+                minf.vmhd = atom
+                acc += atom_size
             case "smhd":
-                smdh, smdh_size := deserialize_smhd(data[acc:])
-                minf.smhd = smdh
-                acc += smdh_size
+                atom, atom_size := deserialize_smhd(data[acc:])
+                minf.smhd = atom
+                acc += atom_size
             case "hmhd":
-                hmhd, hmhd_size := deserialize_hmhd(data[acc:])
-                minf.hmhd = hmhd
-                acc += hmhd_size
+                atom, atom_size := deserialize_hmhd(data[acc:])
+                minf.hmhd = atom
+                acc += atom_size
             case "dinf":
-                dinf, dinf_size := deserialize_dinf(data[acc:])
-                minf.dinf = dinf
-                acc += dinf_size
+                atom, atom_size := deserialize_dinf(data[acc:])
+                minf.dinf = atom
+                acc += atom_size
             case "stbl":
                 stbl, stbl_size := deserialize_stbl(data[acc:], handle_type)
                 minf.stbl = stbl

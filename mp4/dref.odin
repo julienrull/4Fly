@@ -1,7 +1,7 @@
 package mp4
 
-import "core:mem"
 import "core:slice"
+import "core:fmt"
 
 // DataReferenceBox
 
@@ -29,23 +29,25 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data[acc:])
     dref.fullbox = fullbox
     acc += fullbox_size
-    entry_count := (^u32be)(&data[acc])^
+    dref.entry_count = (^u32be)(&data[acc])^
     acc += size_of(u32be)
-    dref.data_entry_url = make([dynamic]Url, 0, entry_count)
-    dref.data_entry_urn = make([dynamic]Urn, 0, entry_count)
-    if entry_count > 0 {
-        for i:=0; i<int(entry_count); i+=1 {
+    dref.data_entry_url = make([dynamic]Url, 0, dref.entry_count)
+    dref.data_entry_urn = make([dynamic]Urn, 0, dref.entry_count)
+    if dref.entry_count > 0 {
+        for i:=0; i<int(dref.entry_count); i+=1 {
             sub_fullbox, sub_fullbox_size := deserialize_fullbox(data[acc:])
             sub_fullbox_type_s := to_string(&sub_fullbox.box.type)
-            acc += size_of(sub_fullbox_size)
+            acc += sub_fullbox_size
             if sub_fullbox_type_s == "url"{
                 if sub_fullbox.flags[2] != 1 {
                     char: rune = (^rune)(&data[acc])^
                     begin := acc
+                    byte_count := 0
                     for char != 0 {
                         acc += size_of(rune)
                         char = (^rune)(&data[acc])^
                     }
+                    acc += size_of(rune)
                     append(&dref.data_entry_url, Url{
                         sub_fullbox,
                         data[begin:acc]
@@ -59,12 +61,14 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
                         acc += size_of(rune)
                         char = (^rune)(&data[acc])^
                     }
+                    acc += size_of(rune)
                     name := data[begin:acc]
                     begin = acc
                     for char != 0 {
                         acc += size_of(rune)
                         char = (^rune)(&data[acc])^
                     }
+                    acc += size_of(rune)
                     location := data[begin:acc] 
                     append(&dref.data_entry_urn, Urn{
                         sub_fullbox,
@@ -74,7 +78,7 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
                 }
             }
         }
-    } 
+    }
     return dref, acc
 }
 

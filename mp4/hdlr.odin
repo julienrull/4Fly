@@ -32,10 +32,11 @@ deserialize_hdlr :: proc(data: []byte) -> (hdlr: Hdlr, acc: u64) {
 
     hdlr.reserved = (^[3]u32be)(&data[acc])^
     acc += size_of([3]u32be)
-
+    
     remain := size - acc 
-
+    
     hdlr.name = data[acc:acc + remain]
+    acc += remain
 
     return hdlr, acc
 }
