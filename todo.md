@@ -42,7 +42,7 @@
           - [-] stbl
             - [x] stts
             - [x] ctts
-            - [x] stsd
+            - [-] stsd
             - [x] stsz
             - [x] stz2
             - [x] stsc
@@ -67,8 +67,11 @@
   - [x] box.Size == 0, 1 or size
   - [x] check if all boxes with bitwises are corrcect because of Big endian format
   - [x] stbl need hdlr type info (vide, soun and hint) info  sub boxes "stsd" and "stdp"
-  - [ ] fragment boxes  need some modularity rewriting
+  - [x] fragment boxes  need some modularity rewriting
+  - [ ] Try create an init file for test.mp4
   - [ ] "sgpd" and "sbgp"
+  - [ ] "stsd" seems need an "avc1" special atom as children but not document in specs
+    (https://thompsonng.blogspot.com/2010/11/mp4-file-format-part-2.html)
 
 # Done
 

@@ -39,7 +39,7 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
                 stbl.ctts = atom
                 acc += atom_size
             case "stsd":
-                atom, atom_size := deserialize_stsd(data[acc:], handle_type) // TODO
+                atom, atom_size := deserialize_stsd(data[acc:], handle_type)
                 stbl.stsd = atom
                 acc += atom_size
             case "stsz":
@@ -71,18 +71,20 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
                 stbl.stsh = atom
                 acc += atom_size
             case "stdp":
-                atom, atom_size := deserialize_stdp(data[acc:], stbl.stsz.sample_count) // TODO
+                atom, atom_size := deserialize_stdp(data[acc:], stbl.stsz.sample_count)
                 stbl.stdp = atom
                 acc += atom_size
             case "padb":
                 atom, atom_size := deserialize_padb(data[acc:])
                 stbl.padb = atom
                 acc += atom_size
-            // case "sgpd":
+            case "sgpd": // TODO
+                    acc += u64(sub_box.size) // ! skip for now
                     // atom, atom_size := deserialize_sgpd(data[acc:])
                     // stbl.sgpd = atom
                     // acc += atom_size
-            // case "sbgp":
+            case "sbgp": // TODO
+                    acc += u64(sub_box.size) // ! skip for now
                     // atom, atom_size := deserialize_sbgp(data[acc:])
                     // stbl.sbgp = atom
                     // acc += atom_size

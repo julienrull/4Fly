@@ -13,6 +13,7 @@ import "core:mem"
 
 deserialize_cprt :: proc(data: []byte) -> (cprt: Cprt, acc: u64) {
     fullbox, fullbox_size :=  deserialize_fullbox(data[acc:])
+    acc += fullbox_size
     cprt.fullbox = fullbox
     size: u64
     if fullbox.box.size == 1 {
@@ -22,7 +23,6 @@ deserialize_cprt :: proc(data: []byte) -> (cprt: Cprt, acc: u64) {
     }else {
         size = u64(fullbox.box.size)
     }
-    acc += fullbox_size
     cprt.pad = 0
     pack: u16be = (^u16be)(&data[acc])^
     cprt.language[2] = byte((pack >> 1) & 0b00000000_00011111)
@@ -31,6 +31,7 @@ deserialize_cprt :: proc(data: []byte) -> (cprt: Cprt, acc: u64) {
     acc += size_of(u16be)
     remain :=  size - acc
     cprt.notice = mem.ptr_to_bytes(&data[acc], int(remain))
+    acc += remain
     return cprt, acc
 }
 

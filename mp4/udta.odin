@@ -16,7 +16,6 @@ deserialize_udta :: proc(data: []byte) -> (udta: Udta, acc: u64) {
     cprt, cprt_size := deserialize_cprt(data[acc:])
     udta.cprt = cprt
     acc += cprt_size
-    
     return udta, acc
 }
 

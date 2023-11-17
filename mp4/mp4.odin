@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:fmt"
 
 Mp4 :: struct {
     ftyp:   Ftyp,
@@ -16,6 +17,9 @@ deserialize_mp4 :: proc(data: []byte, size: u64) ->  (mp4: Mp4, acc: u64) {
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
     for  acc < size {
+        // fmt.println(to_string(&atom.box.type))
+        fmt.println(size)
+        fmt.println(acc)
         switch name {
             case "ftyp":
                 atom, atom_size := deserialize_ftype(data[acc:])
@@ -42,14 +46,16 @@ deserialize_mp4 :: proc(data: []byte, size: u64) ->  (mp4: Mp4, acc: u64) {
                 mp4.mdat = atom
                 acc += atom_size
             case "free": // TODO: free box implementation 
-                atom, atom_size := deserialize_box(data[acc:])
+                //atom, atom_size := deserialize_box(data[acc:])
                 //mp4.minf = atom
-                acc += atom_size
+                acc += u64(sub_box.size)
             case:
                 panic("mp4 sub box not implemented")
         }
-        sub_box, sub_box_size = deserialize_box(data[acc:])
-        name := to_string(&sub_box.type)
+        if acc < size {
+            sub_box, sub_box_size = deserialize_box(data[acc:])
+            name := to_string(&sub_box.type)
+        }
     }
     return mp4, acc
 }

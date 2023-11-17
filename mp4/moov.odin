@@ -28,9 +28,6 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_trak(data[acc:])
                 append(&moov.traks, atom)
                 acc += atom_size
-                // fmt.println(name)
-                // fmt.println(atom.box.size)
-                // fmt.println(atom_size)
             case "udta":
                 atom, atom_size := deserialize_udta(data[acc:]) // TODO
                 moov.udta = atom

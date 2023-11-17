@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:fmt"
 
 // MediaDataBox
 Mdat :: struct { // mdat
@@ -8,8 +9,7 @@ Mdat :: struct { // mdat
     //data:   []byte
 }
 
-deserialize_mdat :: proc(data: []byte) -> (Mdat, u64) { // TODO
-    acc: u64 = 0
+deserialize_mdat :: proc(data: []byte) -> (mdat: Mdat, acc: u64) { // TODO
     size: u64 = 0
     box, box_size := deserialize_box(data)
     if box.size == 1 {
@@ -19,14 +19,8 @@ deserialize_mdat :: proc(data: []byte) -> (Mdat, u64) { // TODO
     }else {
         size = u64(box.size)
     }
-    acc += box_size
-    //mdat_data := data[box_size:]
-    acc += (size - box_size)
-
-    return Mdat{
-        box,
-        //mdat_data
-    }, acc
+    acc += size
+    return mdat, acc
 }
 
 serialize_mdat :: proc(mdat: Mdat) -> ([]byte) { // TODO
