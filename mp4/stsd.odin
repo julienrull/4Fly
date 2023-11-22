@@ -61,7 +61,6 @@ deserialize_stsd :: proc(data: []byte, handler_type: u32be) -> (stsd: Stsd, acc:
 }
 
 serialize_stsd :: proc(stsd: Stsd, handler_type: u32be) -> (data: []byte) {
-    //panic("[TODO] - serialize_stsd() not implemented")
     box_b := serialize_fullbox(stsd.fullbox)
     entry_count := stsd.entry_count
     entry_count_b := (^[4]byte)(&entry_count)^
@@ -71,7 +70,7 @@ serialize_stsd :: proc(stsd: Stsd, handler_type: u32be) -> (data: []byte) {
         for i:=0; i<len(stsd.visualSampleEntries); i+=1 {
             box_b := serialize_box(stsd.visualSampleEntries[i].box)
             vide := stsd.visualSampleEntries[i]
-            vide_b := mem.ptr_to_bytes(&vide, size_of(VisualSampleEntry))
+            vide_b := (^[112]byte)(&vide)^
             data = slice.concatenate([][]byte{box_b[:], vide_b[size_of(Box):]})
         }
     }
@@ -79,7 +78,7 @@ serialize_stsd :: proc(stsd: Stsd, handler_type: u32be) -> (data: []byte) {
         for i:=0; i<len(stsd.audioSampleEntries); i+=1 {
             box_b := serialize_box(stsd.audioSampleEntries[i].box)
             soun := stsd.audioSampleEntries[i]
-            soun_b := mem.ptr_to_bytes(&soun, size_of(AudioSampleEntry))
+            soun_b := (^[64]byte)(&soun)^
             data = slice.concatenate([][]byte{box_b[:], soun_b[size_of(Box):]})
         }
     }

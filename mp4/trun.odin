@@ -22,7 +22,7 @@ TrackRunBoxSample :: struct {
 }
 
 
-deserialize_trun :: proc(data: []byte) -> (trun: Trun, acc: u64) { // TODO
+deserialize_trun :: proc(data: []byte) -> (trun: Trun, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data)
     trun.fullbox = fullbox
     acc += fullbox_size

@@ -17,9 +17,9 @@ deserialize_mp4 :: proc(data: []byte, size: u64) ->  (mp4: Mp4, acc: u64) {
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
     for  acc < size {
-        // fmt.println(to_string(&atom.box.type))
-        fmt.println(size)
-        fmt.println(acc)
+        // fmt.println(name)
+        // fmt.println(size)
+        // fmt.println(acc)
         switch name {
             case "ftyp":
                 atom, atom_size := deserialize_ftype(data[acc:])
@@ -68,13 +68,8 @@ serialize_mp4 :: proc(mp4: Mp4) -> (data: []byte) {
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = mp4.styp.box.type
-    if to_string(&name) == "ftyp" {
+    if to_string(&name) == "styp" {
         bin := serialize_ftype(mp4.ftyp)
-        data = slice.concatenate([][]byte{data[:], bin[:]})
-    }
-    name = mp4.moov.box.type
-    if to_string(&name) == "moov" {
-        bin := serialize_moov(mp4.moov)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = mp4.moov.box.type
@@ -93,11 +88,11 @@ serialize_mp4 :: proc(mp4: Mp4) -> (data: []byte) {
         bin := serialize_moof(mp4.moof)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
-    name = mp4.mdat.box.type
-    if to_string(&name) == "mdat" {
-        bin := serialize_mdat(mp4.mdat)
-        data = slice.concatenate([][]byte{data[:], bin[:]})
-    }
+    // name = mp4.mdat.box.type
+    // if to_string(&name) == "mdat" {
+    //     bin := serialize_mdat(mp4.mdat)
+    //     data = slice.concatenate([][]byte{data[:], bin[:]})
+    // }
 
 
     return data

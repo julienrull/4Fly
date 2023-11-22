@@ -63,37 +63,31 @@ deserialize_minf :: proc(data: []byte, handle_type: u32be) -> (minf: Minf, acc: 
 serialize_minf :: proc(minf: Minf, handle_type: u32be) -> (data: []byte) {
     box_b := serialize_box(minf.box)
     type := minf.vmhd.fullbox.box.type
-    vmhd_s := to_string(&type)
-
-    type = minf.smhd.fullbox.box.type
-    smhd_s := to_string(&type)
-
-    type = minf.hmhd.fullbox.box.type
-    hmhd_s := to_string(&type)
-
-    type = minf.nmhd.fullbox.box.type
-    nmhd_s := to_string(&type)
-    
-    if vmhd_s == "vmhd" {
+    name := to_string(&type)
+    if name == "vmhd" {
         vmhd_b := serialize_vmhd(minf.vmhd)    
         data = slice.concatenate([][]byte{box_b[:], vmhd_b[:]})
     }
-    if smhd_s == "smhd" {
+    type = minf.smhd.fullbox.box.type
+    name = to_string(&type)
+    if name == "smhd" {
         smhd_b := serialize_smhd(minf.smhd)    
         data = slice.concatenate([][]byte{box_b[:], smhd_b[:]})
     }
-    if hmhd_s == "hmhd" {
+    type = minf.hmhd.fullbox.box.type
+    name = to_string(&type)
+    if name == "hmhd" {
         hmhd_b := serialize_hmhd(minf.hmhd)    
         data = slice.concatenate([][]byte{box_b[:], hmhd_b[:]})
     }
-    if nmhd_s == "nmhd" {
+    type = minf.nmhd.fullbox.box.type
+    name = to_string(&type)
+    if name == "nmhd" {
         nmhd_b := serialize_nmhd(minf.nmhd)    
         data = slice.concatenate([][]byte{box_b[:], nmhd_b[:]})
     }
-    
     dinf_b := serialize_dinf(minf.dinf)
     data = slice.concatenate([][]byte{data[:], dinf_b[:]})
-
     stbl_b := serialize_stbl(minf.stbl, handle_type)
     data = slice.concatenate([][]byte{data[:], stbl_b[:]})
     return data

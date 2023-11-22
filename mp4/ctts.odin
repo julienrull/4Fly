@@ -2,6 +2,7 @@ package mp4
 
 import "core:mem"
 import "core:slice"
+import "core:fmt"
 
 // CompositionOffsetBox
 Ctts :: struct{ // stbl -> ctts
@@ -37,9 +38,15 @@ serialize_ctts :: proc(ctts: Ctts) -> (data: []byte){
     entry_count_b := (^[4]byte)(&entry_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
     entries := ctts.entries
-    if entry_count > 0 {
-        entries_b := mem.ptr_to_bytes(&entries, size_of(CompositionOffsetBoxEntries)*int(entry_count))
-        data = slice.concatenate([][]byte{data[:], entries_b[:]})
+    for i:=0;i<int(entry_count);i+=1{
+        entry := entries[i]
+        entry_b := (^[8]byte)(&entry)^
+        data = slice.concatenate([][]byte{data[:], entry_b[:]})
     }
+    // if entry_count > 0 {
+    //     entries_b := mem.ptr_to_bytes(&entries, int(entry_count))
+    //     fmt.println(mem.byte_slice(&entries, int(entry_count)))
+    //     data = slice.concatenate([][]byte{data[:], entries_b[:]})
+    // }
     return data
 }

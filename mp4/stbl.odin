@@ -109,10 +109,10 @@ serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
     if to_string(&name) == "ctts" {
         bin := serialize_ctts(stbl.ctts)
         data = slice.concatenate([][]byte{data[:], bin[:]})
-    }
+    }    
     name = stbl.stsd.fullbox.box.type
     if to_string(&name) == "stsd" {
-        bin := serialize_stsd(stbl.stsd, handle_type) // TODO
+        bin := serialize_stsd(stbl.stsd, handle_type)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = stbl.stsz.fullbox.box.type
@@ -152,7 +152,7 @@ serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
     }
     name = stbl.stdp.fullbox.box.type
     if to_string(&name) == "stdp" {
-        bin := serialize_stdp(stbl.stdp, stbl.stsz.sample_count) // TODO
+        bin := serialize_stdp(stbl.stdp, stbl.stsz.sample_count)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     name = stbl.padb.fullbox.box.type
@@ -160,6 +160,8 @@ serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
         bin := serialize_padb(stbl.padb)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
+
+    // ! TODO : sgpd & sbgp 
     // name = stbl.sgpd.fullbox.box.type
     // if to_string(&name) == "sgpd" {
     //     bin := serialize_sgpd(stbl.sgpd)

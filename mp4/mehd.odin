@@ -14,11 +14,11 @@ deserialize_mehd :: proc(data: []byte) -> (mehd: Mehd, acc: u64) {
     mehd.fullbox = fullbox
     acc += fullbox_size
     if fullbox.version == 1 {
-        mehd.fragment_duration = (^u32be)(&data[acc])^
-        acc += size_of(u32be)
-    }else{
         mehd.fragment_duration_extends = (^u64be)(&data[acc])^
         acc += size_of(u64be)
+    }else{
+        mehd.fragment_duration = (^u32be)(&data[acc])^
+        acc += size_of(u32be)
     }
     return mehd, acc
 }

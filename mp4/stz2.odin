@@ -29,7 +29,6 @@ deserialize_stz2 :: proc(data: []byte) -> (stz2: Stz2, acc: u64) {
     return stz2, acc
 }
 
-// TODO
 serialize_stz2 :: proc(stz2: Stz2) -> (data: []byte){
     fullbox_b := serialize_fullbox(stz2.fullbox)
     reserved := stz2.reserved

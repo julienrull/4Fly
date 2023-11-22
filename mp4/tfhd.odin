@@ -15,7 +15,7 @@ Tfhd :: struct { // traf -> tfhd
     default_sample_flags:       u32be
 }
 
-deserialize_tfhd :: proc(data: []byte) -> (tfhd: Tfhd, acc: u64) { // TODO
+deserialize_tfhd :: proc(data: []byte) -> (tfhd: Tfhd, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data)
     tfhd.fullbox = fullbox
     acc += fullbox_size

@@ -139,7 +139,7 @@ serialize_tkhd :: proc(tkhd: Tkhd) -> (data: []byte){
     data = slice.concatenate([][]byte{data[:], reserved3_b[:]})
 
     matrixx :=  tkhd.matrixx
-    matrixx_b :=  (^[24]byte)(&matrixx)^
+    matrixx_b :=  (^[36]byte)(&matrixx)^
     data = slice.concatenate([][]byte{data[:], matrixx_b[:]})
 
     width :=  tkhd.width

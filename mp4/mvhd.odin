@@ -117,11 +117,11 @@ serialize_mvhd :: proc(mvhd: Mvhd) -> (data: []byte){
     data = slice.concatenate([][]byte{data[:], reserved2_b[:]})
 
     matrixx :=  mvhd.matrixx
-    matrixx_b :=  (^[24]byte)(&matrixx)^
+    matrixx_b :=  (^[36]byte)(&matrixx)^
     data = slice.concatenate([][]byte{data[:], matrixx_b[:]})
 
     pre_defined :=  mvhd.pre_defined
-    pre_defined_b :=  (^[18]byte)(&pre_defined)^
+    pre_defined_b :=  (^[24]byte)(&pre_defined)^
     data = slice.concatenate([][]byte{data[:], pre_defined_b[:]})
 
     next_track_ID :=  mvhd.next_track_ID

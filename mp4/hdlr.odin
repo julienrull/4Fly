@@ -47,16 +47,16 @@ serialize_hdlr :: proc(hdlr: Hdlr) -> (data: []byte) {
     pre_defined := hdlr.pre_defined
     pre_defined_b := (^[4]byte)(&pre_defined)^
     data = slice.concatenate([][]byte{fullbox_b[:], pre_defined_b[:]})
-
+    
     handler_type := hdlr.handler_type
     handler_type_b := (^[4]byte)(&handler_type)^
     data = slice.concatenate([][]byte{data[:], handler_type_b[:]})
 
     reserved := hdlr.reserved
-    reserved_b := (^[4]byte)(&reserved)^
+    reserved_b := (^[12]byte)(&reserved)^
     data = slice.concatenate([][]byte{data[:], reserved_b[:]})
 
-    data = slice.concatenate([][]byte{fullbox_b[:], hdlr.name[:]})
+    data = slice.concatenate([][]byte{data[:], hdlr.name[:]})
 
     return data
 }

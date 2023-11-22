@@ -8,7 +8,8 @@ Moov :: struct { // moov
     box:            Box,
     mvhd: Mvhd,
     traks:          [dynamic]Trak,
-    udta: Udta
+    udta: Udta,
+    mvex: Mvex
 }
 
 deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
@@ -16,9 +17,17 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
     box, box_size := deserialize_box(data)
     moov.box = box
     acc += box_size
+    size: u64
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0 {
+        size = u64(len(data))
+    }else {
+        size =  u64(box.size)
+    }
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
-    for  acc < u64(box.size) {
+    for  acc < size {
         switch name {
             case "mvhd":
                 atom, atom_size := deserialize_mvhd(data[acc:])
@@ -28,15 +37,30 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_trak(data[acc:])
                 append(&moov.traks, atom)
                 acc += atom_size
-            case "udta":
-                atom, atom_size := deserialize_udta(data[acc:]) // TODO
+                fmt.println("name", name)
+                fmt.println("atom.size", atom.box.size)
+                fmt.println("atom_size", atom_size)
+                case "udta":
+                atom, atom_size := deserialize_udta(data[acc:])
                 moov.udta = atom
                 acc += atom_size
+                fmt.println("name", name)
+                fmt.println("atom.size", atom.box.size)
+                fmt.println("atom_size", atom_size)
+            case "mvex":
+                atom, atom_size := deserialize_mvex(data[acc:])
+                moov.mvex = atom
+                acc += atom_size
+                fmt.println("name", name)
+                fmt.println("atom.size", atom.box.size)
+                fmt.println("atom_size", atom_size)
             case:
-                panic("moov sub box not implemented")
+                panic(fmt.tprintf("moov sub box '%v' not implemented", name))
         }
-        sub_box, sub_box_size = deserialize_box(data[acc:])
-        name := to_string(&sub_box.type)
+        if acc < size {
+            sub_box, sub_box_size = deserialize_box(data[acc:])
+            name := to_string(&sub_box.type)
+        }
     }
     return moov, acc
 }
@@ -58,7 +82,12 @@ serialize_moov :: proc(moov: Moov) -> (data: []byte) {
     }
     name = moov.udta.box.type
     if to_string(&name) == "udta" {
-        bin := serialize_udta(moov.udta) // TODO
+        bin := serialize_udta(moov.udta)
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
+    name = moov.mvex.box.type
+    if to_string(&name) == "mvex" {
+        bin := serialize_mvex(moov.mvex)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     return data

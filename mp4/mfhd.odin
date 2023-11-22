@@ -9,7 +9,7 @@ Mfhd :: struct { // moof -> mfhd
     sequence_number:    u32be
 }
 
-deserialize_mfhd :: proc(data: []byte) -> (mfhd: Mfhd, acc: u64) { // TODO
+deserialize_mfhd :: proc(data: []byte) -> (mfhd: Mfhd, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data)
     mfhd.fullbox = fullbox
     acc += fullbox_size

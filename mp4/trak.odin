@@ -23,12 +23,16 @@ deserialize_trak :: proc(data: []byte) -> (trak: Trak, acc: u64) {
                 atom, atom_size := deserialize_tkhd(data[acc:])
                 trak.tkhd = atom
                 acc += atom_size
+                fmt.println("name", name)
+                fmt.println("atom.size", atom.fullbox.box.size)
+                fmt.println("atom_size", atom_size)
+                fmt.println(atom)
             case "edts":
                 atom, atom_size := deserialize_edts(data[acc:])
                 trak.edts = atom
                 acc += atom_size
             case "mdia":
-                atom, atom_size := deserialize_mdia(data[acc:]) // TODO
+                atom, atom_size := deserialize_mdia(data[acc:])
                 trak.mdia = atom
                 acc += atom_size
             case:
@@ -55,7 +59,7 @@ serialize_trak :: proc(trak: Trak) -> (data: []byte) {
     }
     name = trak.mdia.box.type
     if to_string(&name) == "mdia" {
-        bin := serialize_mdia(trak.mdia) // TODO
+        bin := serialize_mdia(trak.mdia)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     return data

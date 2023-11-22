@@ -21,17 +21,12 @@ main :: proc() {
 	os.read(f, buffer)
 	//mp4.dump(buffer, u64(len(buffer)))
 
-	frag, fraf_size := mp4.deserialize_mp4(buffer, u64(len(buffer)))
-	data, err_masrshal := json.marshal(frag)
-	fmt.println(string(data))
+
+	mp4_file, mp4_file_size := mp4.deserialize_mp4(buffer, u64(len(buffer)))
+	//data, err_masrshal := json.marshal(mp4_file)
+	//fmt.println(string(data))
+	
+	ser_mp4_file := mp4.serialize_mp4(mp4_file)
+	deser_mp4_file, deser_mp4_file_size := mp4.deserialize_mp4(ser_mp4_file, u64(len(ser_mp4_file)))
+	fmt.println(deser_mp4_file)
 }
-
-
-// test := 0b10000101_00000000
-// mask := 0b00000000_00000001
-// test_shift := test >> 8
-// bit := test_shift & mask
-// mask = 0b00000000_11111111
-// rest := (test_shift >> 1) & mask
-// fmt.println(bit)
-// fmt.println(rest)

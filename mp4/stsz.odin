@@ -2,6 +2,7 @@ package mp4
 
 import "core:slice"
 import "core:mem"
+import "core:fmt"
 
 // SampleSizeBox
 Stsz :: struct {
@@ -39,11 +40,16 @@ serialize_stsz :: proc(stsz: Stsz) -> (data: []byte){
     sample_size := stsz.sample_size
     sample_size_b := (^[4]byte)(&sample_size)^
     data = slice.concatenate([][]byte{data[:], sample_size_b[:]})
-
-    if sample_count > 0 {
-        entries_sizes := stsz.entries_sizes
-        entries_sizes_b := mem.ptr_to_bytes(&entries_sizes, size_of(u32be)*int(sample_count))
-        data = slice.concatenate([][]byte{data[:], entries_sizes_b[:]})
+    entries_sizes := stsz.entries_sizes
+    for i:=0;i<int(sample_count);i+=1{
+        entry := entries_sizes[i]
+        entry_b := (^[4]byte)(&entry)^
+        data = slice.concatenate([][]byte{data[:], entry_b[:]})
     }
+    // if sample_count > 0 {
+    //     entries_sizes := stsz.entries_sizes
+    //     entries_sizes_b := mem.ptr_to_bytes(&entries_sizes, size_of(u32be)*int(sample_count))
+    //     data = slice.concatenate([][]byte{data[:], entries_sizes_b[:]})
+    // }
     return data
 }
