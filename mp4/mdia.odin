@@ -32,7 +32,6 @@ deserialize_mdia :: proc(data: []byte) -> (mdia: Mdia, acc: u64) {
                 mdia.minf = atom
                 acc += atom_size
             case:
-                
                 panic("mdia sub box not implemented")
         }
         sub_box, sub_box_size = deserialize_box(data[acc:])

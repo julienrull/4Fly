@@ -37,10 +37,12 @@ serialize_stts :: proc(stts: Stts) -> (data: []byte) {
 	entry_count := stts.entry_count
 	entry_count_b := (^[4]byte)(&entry_count)^
 	data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
-	entries := stts.entries
 	if entry_count > 0 {
-		entries_b := mem.ptr_to_bytes(&entries, size_of(TimeToSampleBoxEntrie) * int(entry_count))
-		data = slice.concatenate([][]byte{data[:], entries_b[:]})
+		for i := 0; i < int(stts.entry_count); i += 1 {
+			entry := stts.entries[i]
+			entry_b := (^[8]byte)(&entry)^
+			data = slice.concatenate([][]byte{data[:], entry_b[:]})
+		}
 	}
 	return data
 }

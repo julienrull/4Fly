@@ -31,7 +31,7 @@ deserialize_moof :: proc(data: []byte) -> (moof: Moof, acc: u64) {
                 panic("moov sub box not implemented")
         }
         sub_box, sub_box_size = deserialize_box(data[acc:])
-        name := to_string(&sub_box.type)
+        name = to_string(&sub_box.type)
     }
     
     return moof, acc

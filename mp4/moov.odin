@@ -37,16 +37,13 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_trak(data[acc:])
                 append(&moov.traks, atom)
                 acc += atom_size
-                fmt.println("name", name)
-                fmt.println("atom.size", atom.box.size)
-                fmt.println("atom_size", atom_size)
                 case "udta":
                 atom, atom_size := deserialize_udta(data[acc:])
                 moov.udta = atom
                 acc += atom_size
-                fmt.println("name", name)
-                fmt.println("atom.size", atom.box.size)
-                fmt.println("atom_size", atom_size)
+                // fmt.println("name", name)
+                // fmt.println("atom.size", atom.box.size)
+                // fmt.println("atom_size", atom_size)
             case "mvex":
                 atom, atom_size := deserialize_mvex(data[acc:])
                 moov.mvex = atom
@@ -59,7 +56,7 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
         }
         if acc < size {
             sub_box, sub_box_size = deserialize_box(data[acc:])
-            name := to_string(&sub_box.type)
+            name = to_string(&sub_box.type)
         }
     }
     return moov, acc

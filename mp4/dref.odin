@@ -38,7 +38,9 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
             sub_fullbox, sub_fullbox_size := deserialize_fullbox(data[acc:])
             sub_fullbox_type_s := to_string(&sub_fullbox.box.type)
             acc += sub_fullbox_size
-            if sub_fullbox_type_s == "url"{
+            type_b := (^[3]byte)(&sub_fullbox.box.type)^
+            if string(type_b[:]) == "url"{
+
                 if sub_fullbox.flags[2] != 1 {
                     char: rune = (^rune)(&data[acc])^
                     begin := acc
@@ -51,6 +53,11 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
                     append(&dref.data_entry_url, Url{
                         sub_fullbox,
                         data[begin:acc]
+                    })
+                }else{
+                    append(&dref.data_entry_url, Url{
+                        sub_fullbox,
+                        []byte{}
                     })
                 }
             }else if sub_fullbox_type_s == "urn" {
@@ -75,6 +82,12 @@ deserialize_dref :: proc(data: []byte) -> (dref: Dref, acc: u64) {
                         name,
                         location,
                     })
+                }else{
+                    append(&dref.data_entry_urn, Urn{
+                        sub_fullbox,
+                        []byte{},
+                        []byte{}
+                    })
                 }
             }
         }
@@ -90,13 +103,17 @@ serialize_dref :: proc(dref: Dref) -> (data: []byte) {
     for i:=0; i<len(dref.data_entry_url); i+=1 {
         sub_fullbox_b := serialize_fullbox(dref.data_entry_url[i].fullbox)
         data = slice.concatenate([][]byte{data[:], sub_fullbox_b[:]})
-        data = slice.concatenate([][]byte{data[:], dref.data_entry_url[i].location[:]})
+        if dref.data_entry_url[i].fullbox.flags[2] != 1 {
+            data = slice.concatenate([][]byte{data[:], dref.data_entry_url[i].location[:]})
+        }
     }
     for i:=0; i<len(dref.data_entry_urn); i+=1 {
         sub_fullbox_b := serialize_fullbox(dref.data_entry_urn[i].fullbox)
         data = slice.concatenate([][]byte{data[:], sub_fullbox_b[:]})
-        data = slice.concatenate([][]byte{data[:], dref.data_entry_urn[i].name[:]})
-        data = slice.concatenate([][]byte{data[:], dref.data_entry_urn[i].location[:]})
+        if dref.data_entry_urn[i].fullbox.flags[2] != 1 {
+            data = slice.concatenate([][]byte{data[:], dref.data_entry_urn[i].name[:]})
+            data = slice.concatenate([][]byte{data[:], dref.data_entry_urn[i].location[:]})
+        }
     }
     return data
 }

@@ -54,7 +54,7 @@ deserialize_mp4 :: proc(data: []byte, size: u64) ->  (mp4: Mp4, acc: u64) {
         }
         if acc < size {
             sub_box, sub_box_size = deserialize_box(data[acc:])
-            name := to_string(&sub_box.type)
+            name = to_string(&sub_box.type)
         }
     }
     return mp4, acc

@@ -30,6 +30,7 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 	sub_box, sub_box_size := deserialize_box(data[acc:])
 	name := to_string(&sub_box.type)
 	for acc < u64(box.size) {
+		fmt.println("name", name)
 		switch name {
 		case "stts":
 			atom, atom_size := deserialize_stts(data[acc:])
@@ -90,7 +91,7 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 			stbl.sgpd = atom
 			acc += atom_size
 		case:
-			panic("stbl sub box not implemented")
+			panic(fmt.tprintf("stbl sub box '%v' not implemented", name))
 		}
 		sub_box, sub_box_size = deserialize_box(data[acc:])
 		name := to_string(&sub_box.type)
@@ -99,78 +100,107 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 }
 
 serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
+	fmt.println("@@@")
 	box_b := serialize_box(stbl.box)
-	data = slice.concatenate([][]byte{[]byte{}, box_b[:]})
+	data =  box_b[:]
 	name := stbl.stts.fullbox.box.type
-	if to_string(&name) == "stts" {
+	name_s := to_string(&name)
+	if name_s == "stts" {
 		bin := serialize_stts(stbl.stts)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.ctts.fullbox.box.type
-	if to_string(&name) == "ctts" {
+	name_s = to_string(&name)
+	if name_s == "ctts" {
 		bin := serialize_ctts(stbl.ctts)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stsd.fullbox.box.type
-	if to_string(&name) == "stsd" {
+	name_s = to_string(&name)
+	if name_s == "stsd" {
 		bin := serialize_stsd(stbl.stsd, handle_type)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stsz.fullbox.box.type
-	if to_string(&name) == "stsz" {
+	name_s = to_string(&name)
+	if name_s == "stsz" {
 		bin := serialize_stsz(stbl.stsz)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stz2.fullbox.box.type
-	if to_string(&name) == "stz2" {
+	name_s = to_string(&name)
+	if name_s == "stz2" {
 		bin := serialize_stz2(stbl.stz2)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stsc.fullbox.box.type
-	if to_string(&name) == "stsc" {
+	name_s = to_string(&name)
+	if name_s == "stsc" {
 		bin := serialize_stsc(stbl.stsc)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stco.fullbox.box.type
-	if to_string(&name) == "stco" {
+	name_s = to_string(&name)
+	if name_s == "stco" {
 		bin := serialize_stco(stbl.stco)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.co64.fullbox.box.type
-	if to_string(&name) == "co64" {
+	name_s = to_string(&name)
+	if name_s == "co64" {
 		bin := serialize_co64(stbl.co64)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stss.fullbox.box.type
-	if to_string(&name) == "stss" {
+	name_s = to_string(&name)
+	if name_s == "stss" {
 		bin := serialize_stss(stbl.stss)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stsh.fullbox.box.type
-	if to_string(&name) == "stsh" {
+	name_s = to_string(&name)
+	if name_s == "stsh" {
 		bin := serialize_stsh(stbl.stsh)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.stdp.fullbox.box.type
-	if to_string(&name) == "stdp" {
+	name_s = to_string(&name)
+	if name_s == "stdp" {
 		bin := serialize_stdp(stbl.stdp, stbl.stsz.sample_count)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.padb.fullbox.box.type
-	if to_string(&name) == "padb" {
+	name_s = to_string(&name)
+	if name_s == "padb" {
 		bin := serialize_padb(stbl.padb)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.sbgp.fullbox.box.type
-	if to_string(&name) == "sbgp" {
+	name_s = to_string(&name)
+	if name_s == "sbgp" {
 		bin := serialize_sbgp(stbl.sbgp)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
 	name = stbl.sgpd.fullbox.box.type
-	if to_string(&name) == "sgpd" {
+	name_s = to_string(&name)
+	if name_s == "sgpd" {
 	    bin := serialize_sgpd(stbl.sgpd, handle_type)
 	    data = slice.concatenate([][]byte{data[:], bin[:]})
+		fmt.println(name_s)
 	}
-
+	fmt.println("@@@")
 	return data
 }

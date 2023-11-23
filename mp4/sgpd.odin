@@ -37,6 +37,7 @@ AudioRollRecoveryEntry :: struct {
 Sgpd :: struct {
 	fullbox:                   FullBox,
 	grouping_type:             u32be,
+	default_length:            u32be,
 	entry_count:               u32be,
 	visualRollRecoveryEntries: [dynamic]VisualRollRecoveryEntry,
 	audioRollRecoveryEntries:  [dynamic]AudioRollRecoveryEntry,
@@ -47,6 +48,8 @@ deserialize_sgpd :: proc(data: []byte, handler_type: u32be) -> (sgpd: Sgpd, acc:
 	sgpd.fullbox = fullbox
 	acc += fullbox_size
 	sgpd.grouping_type = (^u32be)(&data[acc])^
+	acc += size_of(u32be)
+	sgpd.default_length = (^u32be)(&data[acc])^
 	acc += size_of(u32be)
 	sgpd.entry_count = (^u32be)(&data[acc])^
 	acc += size_of(u32be)
@@ -66,6 +69,7 @@ deserialize_sgpd :: proc(data: []byte, handler_type: u32be) -> (sgpd: Sgpd, acc:
 			acc += u64(size_of(AudioRollRecoveryEntry))
 		}
 	}
+
 	return sgpd, acc
 }
 
@@ -75,6 +79,9 @@ serialize_sgpd :: proc(sgpd: Sgpd, handler_type: u32be) -> (data: []byte) {
 	grouping_type := sgpd.grouping_type
 	grouping_type_b := (^[4]byte)(&grouping_type)^
 	data = slice.concatenate([][]byte{fullbox_b[:], grouping_type_b[:]})
+	default_length := sgpd.default_length
+	default_length_b := (^[4]byte)(&default_length)^
+	data = slice.concatenate([][]byte{fullbox_b[:], default_length_b[:]})
 	entry_count := sgpd.entry_count
 	entry_count_b := (^[4]byte)(&entry_count)^
 	data = slice.concatenate([][]byte{data[:], entry_count_b[:]})
