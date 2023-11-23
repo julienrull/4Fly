@@ -52,8 +52,8 @@
             - [x] stsh
             - [x] stdp
             - [x] padb
-            - [ ] sgpd
-            - [ ] sbgp
+            - [x] sbgp
+            - [x] sgpd
           - [x] edts
             - [x] elst
           - [x] udta
@@ -68,13 +68,11 @@
   - [x] check if all boxes with bitwises are corrcect because of Big endian format
   - [x] stbl need hdlr type info (vide, soun and hint) info  sub boxes "stsd" and "stdp"
   - [x] fragment boxes  need some modularity rewriting
-
   - [ ] serialize mp4
-     - [ ] "sgpd" and "sbgp"
-
+     - [x] "sgpd" and "sbgp"
+  - [ ] "stsd" seems need an "avc1" special atom as children but not document in specs
   - [ ] Insert box
   - [ ] Try create an init file for test.mp4
-  - [ ] "stsd" seems need an "avc1" special atom as children but not document in specs
     (https://thompsonng.blogspot.com/2010/11/mp4-file-format-part-2.html)
   - [ ] We need to check the box size if this one is the last of the file. It isn't a problem with "mdat" because we already check for it (it cause error "out of bound at index 0")
   - [ ] ftyp minor_version doesn't seems to correspond with mp4box
