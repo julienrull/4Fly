@@ -81,7 +81,7 @@ serialize_sgpd :: proc(sgpd: Sgpd, handler_type: u32be) -> (data: []byte) {
 	data = slice.concatenate([][]byte{fullbox_b[:], grouping_type_b[:]})
 	default_length := sgpd.default_length
 	default_length_b := (^[4]byte)(&default_length)^
-	data = slice.concatenate([][]byte{fullbox_b[:], default_length_b[:]})
+	data = slice.concatenate([][]byte{data[:], default_length_b[:]})
 	entry_count := sgpd.entry_count
 	entry_count_b := (^[4]byte)(&entry_count)^
 	data = slice.concatenate([][]byte{data[:], entry_count_b[:]})

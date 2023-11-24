@@ -2,6 +2,7 @@ package mp4
 
 import "core:slice"
 import "core:mem"
+import "core:fmt"
 
 // SampleToChunkBox
 Stsc :: struct {
@@ -37,9 +38,8 @@ serialize_stsc :: proc(stsc: Stsc) -> (data: []byte){
     entry_count := stsc.entry_count
     entry_count_b := (^[4]byte)(&entry_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
-    entries := stsc.entries[:]
     for i:=0;i<int(entry_count);i+=1{
-        entry := entries[i]
+        entry := stsc.entries[i]
         entry_b := (^[12]byte)(&entry)^
         data = slice.concatenate([][]byte{data[:], entry_b[:]})
     }

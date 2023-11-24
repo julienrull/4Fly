@@ -19,6 +19,7 @@ Co64 :: struct {
 
 deserialize_stco :: proc(data: []byte) -> (stco: Stco, acc: u64) {
     fullbox, fullbox_size :=  deserialize_fullbox(data[acc:])
+    stco.fullbox = fullbox
     acc += fullbox_size
     stco.entry_count = (^u32be)(&data[acc])^
     acc += size_of(u32be)
@@ -32,13 +33,14 @@ deserialize_stco :: proc(data: []byte) -> (stco: Stco, acc: u64) {
 
 deserialize_co64 :: proc(data: []byte) -> (co64: Co64, acc: u64) {
     fullbox, fullbox_size :=  deserialize_fullbox(data[acc:])
+    co64.fullbox = fullbox
     acc += fullbox_size
     co64.entry_count = (^u32be)(&data[acc])^
     acc += size_of(u32be)
     co64.chunks_offsets = make([]u64be, co64.entry_count)
     for i:=0; i<int(co64.entry_count); i+=1 {
         co64.chunks_offsets[i] = (^u64be)(&data[acc])^
-        acc += size_of(u32be)
+        acc += size_of(u64be)
     }
     return co64, acc
 }
@@ -49,10 +51,18 @@ serialize_stco :: proc(stco: Stco) -> (data: []byte) {
     entry_count_b := (^[4]byte)(&entry_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
     if entry_count > 0 {
-        chunks_offsets := stco.chunks_offsets[:]
-        chunks_offsets_b := mem.ptr_to_bytes(&chunks_offsets, size_of(u32be) * int(entry_count))
-        data = slice.concatenate([][]byte{data[:], chunks_offsets_b[:]})
+        for i := 0; i < int(stco.entry_count); i += 1 {
+            entry := stco.chunks_offsets[i]
+            entry_b := (^[4]byte)(&entry)^
+            data = slice.concatenate([][]byte{data[:], entry_b[:]})
+        }
     }
+
+    // if entry_count > 0 {
+    //     chunks_offsets := stco.chunks_offsets[:]
+    //     chunks_offsets_b := mem.ptr_to_bytes(&chunks_offsets, size_of(u32be) * int(entry_count))
+    //     data = slice.concatenate([][]byte{data[:], chunks_offsets_b[:]})
+    // }
     return data
 }
 
@@ -62,9 +72,16 @@ serialize_co64 :: proc(co64: Co64) -> (data: []byte) {
     entry_count_b := (^[4]byte)(&entry_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
     if entry_count > 0 {
-        chunks_offsets := co64.chunks_offsets[:]
-        chunks_offsets_b := mem.ptr_to_bytes(&chunks_offsets, size_of(u64be) * int(entry_count))
-        data = slice.concatenate([][]byte{data[:], chunks_offsets_b[:]})
+        for i := 0; i < int(co64.entry_count); i += 1 {
+        entry := co64.chunks_offsets[i]
+        entry_b := (^[8]byte)(&entry)^
+            data = slice.concatenate([][]byte{data[:], entry_b[:]})
+        }
     }
+    // if entry_count > 0 {
+    //     chunks_offsets := co64.chunks_offsets[:]
+    //     chunks_offsets_b := mem.ptr_to_bytes(&chunks_offsets, size_of(u64be) * int(entry_count))
+    //     data = slice.concatenate([][]byte{data[:], chunks_offsets_b[:]})
+    // }
     return data
 }

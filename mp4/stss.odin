@@ -12,6 +12,7 @@ Stss :: struct {
 
 deserialize_stss :: proc(data: []byte) -> (stss: Stss, acc: u64) {
     fullbox, fullbox_size :=  deserialize_fullbox(data[acc:])
+    stss.fullbox = fullbox
     acc += fullbox_size
     stss.entry_count = (^u32be)(&data[acc])^
     acc += size_of(u32be)
@@ -29,9 +30,16 @@ serialize_stss :: proc(stss: Stss) -> (data: []byte) {
     entry_count_b := (^[4]byte)(&entry_count)^
     data = slice.concatenate([][]byte{fullbox_b[:], entry_count_b[:]})
     if entry_count > 0 {
-        samples_numbers := stss.samples_numbers[:]
-        samples_numbers_b := mem.ptr_to_bytes(&samples_numbers, size_of(u32be) * int(entry_count))
-        data = slice.concatenate([][]byte{data[:], samples_numbers_b[:]})
+        for i := 0; i < int(stss.entry_count); i += 1 {
+            entry := stss.samples_numbers[i]
+            entry_b := (^[4]byte)(&entry)^
+            data = slice.concatenate([][]byte{data[:], entry_b[:]})
+        }
     }
+    // if entry_count > 0 {
+    //     samples_numbers := stss.samples_numbers[:]
+    //     samples_numbers_b := mem.ptr_to_bytes(&samples_numbers, size_of(u32be) * int(entry_count))
+    //     data = slice.concatenate([][]byte{data[:], samples_numbers_b[:]})
+    // }
     return data
 }

@@ -33,16 +33,14 @@ deserialize_stsz :: proc(data: []byte) -> (stsz: Stsz, acc: u64) {
 
 serialize_stsz :: proc(stsz: Stsz) -> (data: []byte){
     fullbox_b := serialize_fullbox(stsz.fullbox)
-    sample_count := stsz.sample_count
-    sample_count_b := (^[4]byte)(&sample_count)^
-    data = slice.concatenate([][]byte{fullbox_b[:], sample_count_b[:]})
-
     sample_size := stsz.sample_size
     sample_size_b := (^[4]byte)(&sample_size)^
-    data = slice.concatenate([][]byte{data[:], sample_size_b[:]})
-    entries_sizes := stsz.entries_sizes
+    data = slice.concatenate([][]byte{fullbox_b[:], sample_size_b[:]})
+    sample_count := stsz.sample_count
+    sample_count_b := (^[4]byte)(&sample_count)^
+    data = slice.concatenate([][]byte{data[:], sample_count_b[:]})
     for i:=0;i<int(sample_count);i+=1{
-        entry := entries_sizes[i]
+        entry := stsz.entries_sizes[i]
         entry_b := (^[4]byte)(&entry)^
         data = slice.concatenate([][]byte{data[:], entry_b[:]})
     }

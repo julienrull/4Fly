@@ -27,9 +27,17 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 	box, box_size := deserialize_box(data)
 	stbl.box = box
 	acc += box_size
+	size: u64
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0 {
+        size = u64(len(data))
+    }else {
+        size =  u64(box.size)
+    }
 	sub_box, sub_box_size := deserialize_box(data[acc:])
 	name := to_string(&sub_box.type)
-	for acc < u64(box.size) {
+	for acc < size {
 		fmt.println("name", name)
 		switch name {
 		case "stts":
@@ -81,20 +89,20 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 			stbl.padb = atom
 			acc += atom_size
 		case "sbgp":
-			// TODO
 			atom, atom_size := deserialize_sbgp(data[acc:])
 			stbl.sbgp = atom
 			acc += atom_size
 		case "sgpd":
-			// TODO
 			atom, atom_size := deserialize_sgpd(data[acc:], handle_type)
 			stbl.sgpd = atom
 			acc += atom_size
 		case:
 			panic(fmt.tprintf("stbl sub box '%v' not implemented", name))
 		}
-		sub_box, sub_box_size = deserialize_box(data[acc:])
-		name := to_string(&sub_box.type)
+		if acc < size {
+            sub_box, sub_box_size = deserialize_box(data[acc:])
+            name = to_string(&sub_box.type)
+        }
 	}
 	return stbl, acc
 }
