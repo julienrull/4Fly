@@ -20,7 +20,7 @@
 
 ---
 
-- [ ] Video deserialization / serialization
+- [-] Video deserialization / serialization
 
   - [x] ftyp
   - [x] moov
@@ -71,6 +71,7 @@
   - [x] serialize mp4
      - [x] "sgpd" and "sbgp"
   - [ ] make deserialization / serialization tests
+  - [ ] compare  deserialization between before and after serialization
   - [ ] Insert box
   - [ ] Try create an init file for test.mp4
   - [ ] make file crawl faster

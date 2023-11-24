@@ -7,6 +7,7 @@ import "core:fmt"
 Moov :: struct { // moov
     box:            Box,
     mvhd: Mvhd,
+    iods: Iods,
     traks:          [dynamic]Trak,
     udta: Udta,
     mvex: Mvex
@@ -32,6 +33,10 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
             case "mvhd":
                 atom, atom_size := deserialize_mvhd(data[acc:])
                 moov.mvhd = atom
+                acc += atom_size
+            case "iods":
+                atom, atom_size := deserialize_iods(data[acc:])
+                moov.iods = atom
                 acc += atom_size
             case "trak":
                 atom, atom_size := deserialize_trak(data[acc:])
@@ -68,6 +73,12 @@ serialize_moov :: proc(moov: Moov) -> (data: []byte) {
     name := moov.mvhd.fullbox.box.type
     if to_string(&name) == "mvhd" {
         bin := serialize_mvhd(moov.mvhd)
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
+
+    name = moov.iods.fullbox.box.type
+    if to_string(&name) == "iods" {
+        bin := serialize_iods(moov.iods)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     

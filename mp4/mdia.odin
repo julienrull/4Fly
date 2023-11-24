@@ -15,9 +15,17 @@ deserialize_mdia :: proc(data: []byte) -> (mdia: Mdia, acc: u64) {
     box, box_size := deserialize_box(data)
     mdia.box = box
     acc += box_size
+    size: u64
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0 {
+        size = u64(len(data))
+    }else {
+        size =  u64(box.size)
+    }
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
-    for  acc < u64(box.size) {
+    for  acc < size {
         switch name {
             case "mdhd":
                 atom, atom_size := deserialize_mdhd(data[acc:])
@@ -34,8 +42,10 @@ deserialize_mdia :: proc(data: []byte) -> (mdia: Mdia, acc: u64) {
             case:
                 panic("mdia sub box not implemented")
         }
-        sub_box, sub_box_size = deserialize_box(data[acc:])
-        name := to_string(&sub_box.type)
+        if acc < size {
+            sub_box, sub_box_size = deserialize_box(data[acc:])
+            name = to_string(&sub_box.type)
+        }
     }
     return mdia, acc
 }
