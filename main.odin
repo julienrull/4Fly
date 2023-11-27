@@ -6,6 +6,7 @@ import "core:mem"
 import "core:os"
 import "core:slice"
 import "core:strings"
+import "core:strconv"
 import "mp4"
 
 main :: proc() {
@@ -31,7 +32,8 @@ main :: proc() {
 	os.read(f_seg, seg)
 	// mp4_file, mp4_file_size := mp4.deserialize_mp4(seg, u64(size_seg))
 	// fmt.printf("%v", json.marshal(mp4_file))
-	mp4.recreate_seg_1(vid, seg)
+	
+	mp4.recreate_seg_1(strconv.atoi(args[2]), vid, seg)
 
 	//mp4.dump(buffer, u64(len(buffer)))
 

@@ -51,7 +51,8 @@ dump :: proc(data: []byte, size: u64, level: int = 0) -> (offset: u64) {
     return offset
 }
 
-recreate_seg_1 :: proc(video: []byte, seg1: []byte){
+recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte){
+
     time: f32 = 3.75375
     seg1_atom, seg1_atom_size  := deserialize_mp4(seg1, u64(len(seg1)))
     video_atom, video_atom_size  := deserialize_mp4(video, u64(len(video)))
@@ -60,13 +61,15 @@ recreate_seg_1 :: proc(video: []byte, seg1: []byte){
     // * Time coordinate system
     timescale := video_atom.moov.traks[0].mdia.mdhd.timescale
     video_duration := video_atom.moov.traks[0].mdia.mdhd.duration / timescale
-    fmt.println("video_duration", video_duration / 60, "min", video_duration % 60, "sec")
     // * Get Sample Index
     sample_count := video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_count
     sample_duration := f32(video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_delta) / f32(timescale)
-    fmt.println("sample_duration", sample_duration * 1000, "ms")
-    sample_index :=  math.max(0, int(time / sample_duration) - 1)
-    fmt.println("sample_index", sample_index)
+    sample_index1 :=  math.max(0, int((f32(index)-1) * time / sample_duration) - 1)
+
+    sample_index2 :=  math.max(0, int(f32(index) * time / sample_duration) - 1)
+    fmt.println(sample_index1)
+    fmt.println(sample_index2)
+
     sample_counter := 0
     // * Get chunk
     // chunk_index := 0
@@ -80,9 +83,8 @@ recreate_seg_1 :: proc(video: []byte, seg1: []byte){
     // fmt.println("chunk_index", chunk_index)
     // * Get chunk offset
     
-    chunk_offsets := video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets[:sample_index + 1]
-    sample_sizes := video_atom.moov.traks[0].mdia.minf.stbl.stsz.entries_sizes[:sample_index + 1]
-    fmt.println(len(chunk_offsets))
+    chunk_offsets := video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets[sample_index1:sample_index1]
+    sample_sizes := video_atom.moov.traks[0].mdia.minf.stbl.stsz.entries_sizes[sample_index2:sample_index2]
     seg1_atom.mdat.data = {}
     for i:=0;i<len(chunk_offsets);i+=1 {
         data := video[chunk_offsets[i]:chunk_offsets[i] + sample_sizes[i]]
@@ -90,14 +92,11 @@ recreate_seg_1 :: proc(video: []byte, seg1: []byte){
     }
     
     new_seg1_b := serialize_mp4(seg1_atom)
-    file, err := os.open("./test5/output/video/avc1/seg-1.m4s",os.O_CREATE)
+    
+    file, err := os.open(fmt.tprintf("./test5/output/video/avc1/seg-%d.m4s", index), os.O_CREATE)
     if err != os.ERROR_NONE {
         panic("FILE ERROR")
     }
     defer os.close(file)
-    test, test_size := deserialize_mp4(seg1, u64(len(seg1)))
-    test_b := serialize_mp4(test)
     os.write(file,  new_seg1_b)
-    fmt.println("FIRST LEN", len(seg1))
-    fmt.println("FINAL LEN", len(new_seg1_b))
 }
