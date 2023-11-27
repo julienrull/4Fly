@@ -2,6 +2,7 @@ package mp4
 
 import "core:mem"
 import "core:slice"
+import "core:fmt"
 
 // MovieFragmentBox
 Moof :: struct { // moof
@@ -15,9 +16,17 @@ deserialize_moof :: proc(data: []byte) -> (moof: Moof, acc: u64) {
     box, box_size := deserialize_box(data)
     moof.box = box
     acc += box_size
+    size: u64
+    if box.size == 1 {
+        size = u64(box.largesize)
+    }else if box.size == 0 {
+        size = u64(len(data))
+    }else {
+        size =  u64(box.size)
+    }
     sub_box, sub_box_size := deserialize_box(data[acc:])
     name := to_string(&sub_box.type)
-    for  acc < u64(box.size) {
+    for  acc < size {
         switch name {
             case "mfhd":
                 mfhd, mfhd_size := deserialize_mfhd(data[acc:])
@@ -28,10 +37,12 @@ deserialize_moof :: proc(data: []byte) -> (moof: Moof, acc: u64) {
                 append(&moof.trafs, traf)
                 acc += traf_size
             case:
-                panic("moov sub box not implemented")
+                panic("moof sub box not implemented")
         }
-        sub_box, sub_box_size = deserialize_box(data[acc:])
-        name = to_string(&sub_box.type)
+        if acc < size {
+            sub_box, sub_box_size = deserialize_box(data[acc:])
+            name = to_string(&sub_box.type)
+        }
     }
     
     return moof, acc
@@ -39,8 +50,9 @@ deserialize_moof :: proc(data: []byte) -> (moof: Moof, acc: u64) {
 
 serialize_moof :: proc(moof: Moof) -> (data: []byte) {
     box_b := serialize_box(moof.box)
+    data = box_b
     name := moof.mfhd.fullbox.box.type
-    if to_string(&name) == "mvhd" {
+    if to_string(&name) == "mfhd" {
         bin := serialize_mfhd(moof.mfhd)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }

@@ -3,6 +3,9 @@ package mp4
 import "core:fmt"
 import "core:strings"
 import "core:mem"
+import "core:math"
+import "core:slice"
+import "core:os"
 
 
 to_string :: proc(value: ^u32be) -> string {
@@ -46,4 +49,55 @@ dump :: proc(data: []byte, size: u64, level: int = 0) -> (offset: u64) {
         }
     }
     return offset
+}
+
+recreate_seg_1 :: proc(video: []byte, seg1: []byte){
+    time: f32 = 3.75375
+    seg1_atom, seg1_atom_size  := deserialize_mp4(seg1, u64(len(seg1)))
+    video_atom, video_atom_size  := deserialize_mp4(video, u64(len(video)))
+    // *** READ SAMPLES ***
+
+    // * Time coordinate system
+    timescale := video_atom.moov.traks[0].mdia.mdhd.timescale
+    video_duration := video_atom.moov.traks[0].mdia.mdhd.duration / timescale
+    fmt.println("video_duration", video_duration / 60, "min", video_duration % 60, "sec")
+    // * Get Sample Index
+    sample_count := video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_count
+    sample_duration := f32(video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_delta) / f32(timescale)
+    fmt.println("sample_duration", sample_duration * 1000, "ms")
+    sample_index :=  math.max(0, int(time / sample_duration) - 1)
+    fmt.println("sample_index", sample_index)
+    sample_counter := 0
+    // * Get chunk
+    // chunk_index := 0
+    // for i:=0;i<int(video_atom.moov.traks[0].mdia.minf.stbl.stsc.entry_count);i+=1 {
+    //     if sample_counter >= semple_index {
+    //         chunk_index = i 
+    //         break
+    //     }
+    //     sample_counter += int(video_atom.moov.traks[0].mdia.minf.stbl.stsc.entries[i].samples_per_chunk)
+    // }
+    // fmt.println("chunk_index", chunk_index)
+    // * Get chunk offset
+    
+    chunk_offsets := video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets[:sample_index + 1]
+    sample_sizes := video_atom.moov.traks[0].mdia.minf.stbl.stsz.entries_sizes[:sample_index + 1]
+    fmt.println(len(chunk_offsets))
+    seg1_atom.mdat.data = {}
+    for i:=0;i<len(chunk_offsets);i+=1 {
+        data := video[chunk_offsets[i]:chunk_offsets[i] + sample_sizes[i]]
+        seg1_atom.mdat.data = slice.concatenate([][]byte{seg1_atom.mdat.data,data})
+    }
+    
+    new_seg1_b := serialize_mp4(seg1_atom)
+    file, err := os.open("./test5/output/video/avc1/seg-1.m4s",os.O_CREATE)
+    if err != os.ERROR_NONE {
+        panic("FILE ERROR")
+    }
+    defer os.close(file)
+    test, test_size := deserialize_mp4(seg1, u64(len(seg1)))
+    test_b := serialize_mp4(test)
+    os.write(file,  new_seg1_b)
+    fmt.println("FIRST LEN", len(seg1))
+    fmt.println("FINAL LEN", len(new_seg1_b))
 }

@@ -44,7 +44,7 @@ deserialize_trak :: proc(data: []byte) -> (trak: Trak, acc: u64) {
                 trak.mdia = atom
                 acc += atom_size
             case:
-                panic("trak sub box not implemented")
+                panic(fmt.tprintf("trak sub box '%v' not implemented", name))
         }
         if acc < size {
             sub_box, sub_box_size = deserialize_box(data[acc:])

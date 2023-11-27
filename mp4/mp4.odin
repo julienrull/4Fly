@@ -50,7 +50,7 @@ deserialize_mp4 :: proc(data: []byte, size: u64) ->  (mp4: Mp4, acc: u64) {
                 //mp4.minf = atom
                 acc += u64(sub_box.size)
             case:
-                panic("mp4 sub box not implemented")
+                panic(fmt.tprintf("mp4 sub box '%v' not implemented", name))
         }
         if acc < size {
             sub_box, sub_box_size = deserialize_box(data[acc:])
@@ -88,12 +88,10 @@ serialize_mp4 :: proc(mp4: Mp4) -> (data: []byte) {
         bin := serialize_moof(mp4.moof)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
-    // name = mp4.mdat.box.type
-    // if to_string(&name) == "mdat" {
-    //     bin := serialize_mdat(mp4.mdat)
-    //     data = slice.concatenate([][]byte{data[:], bin[:]})
-    // }
-
-
+    name = mp4.mdat.box.type
+    if to_string(&name) == "mdat" {
+        bin := serialize_mdat(mp4.mdat)
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
     return data
 }

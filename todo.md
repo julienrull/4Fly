@@ -70,10 +70,11 @@
   - [x] fragment boxes  need some modularity rewriting
   - [x] serialize mp4
      - [x] "sgpd" and "sbgp"
-  - [ ] make deserialization / serialization tests
+  - [ ] Try create an init file for test5.mp4
+  - [-] make deserialization / serialization tests
+    - [ ] More boxes need to be implemented
   - [ ] compare  deserialization between before and after serialization
   - [ ] Insert box
-  - [ ] Try create an init file for test.mp4
   - [ ] make file crawl faster
   - [ ] "stsd" seems need an "avc1" special atom as children but not document in specs
     (https://thompsonng.blogspot.com/2010/11/mp4-file-format-part-2.html)

@@ -2,6 +2,7 @@ package mp4
 
 import "core:mem"
 import "core:slice"
+import "core:fmt"
 
 // MovieFragmentHeaderBox
 Mfhd :: struct { // moof -> mfhd
@@ -23,5 +24,7 @@ serialize_mfhd :: proc(mfhd: Mfhd) -> (data: []byte) {
     sequence_number := mfhd.sequence_number
     sequence_number_b := (^[4]byte)(&sequence_number)^
     data = slice.concatenate([][]byte{fullbox_b[:], sequence_number_b[:]})
+    fmt.println("SEG mfhd old", mfhd.fullbox.box.size)
+    fmt.println("SEG mfhd new", len(data))
     return data
 }

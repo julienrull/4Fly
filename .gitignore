@@ -27,5 +27,6 @@ go.work
 *.html
 *.m4s
 *.m3u8
+*.txt
 
 
