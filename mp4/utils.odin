@@ -64,13 +64,14 @@ recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte){
     // * Get Sample Index
     sample_count := video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_count
     sample_duration := f32(video_atom.moov.traks[0].mdia.minf.stbl.stts.entries[0].sample_delta) / f32(timescale)
-    sample_index1 :=  math.max(0, int((f32(index)-1) * time / sample_duration) - 1)
-
+    sample_index1 :=  math.max(0, int((f32(index)-1) * time / sample_duration))
     sample_index2 :=  math.max(0, int(f32(index) * time / sample_duration) - 1)
-    fmt.println(sample_index1)
-    fmt.println(sample_index2)
 
-    sample_counter := 0
+    // fmt.println(seg1_atom.moof.trafs[0].trun.sample_count)
+    // fmt.println(sample_index1)
+    // fmt.println(sample_index2)
+
+    // sample_counter := 0
     // * Get chunk
     // chunk_index := 0
     // for i:=0;i<int(video_atom.moov.traks[0].mdia.minf.stbl.stsc.entry_count);i+=1 {
@@ -83,13 +84,28 @@ recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte){
     // fmt.println("chunk_index", chunk_index)
     // * Get chunk offset
     
-    chunk_offsets := video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets[sample_index1:sample_index1]
-    sample_sizes := video_atom.moov.traks[0].mdia.minf.stbl.stsz.entries_sizes[sample_index2:sample_index2]
+    chunk_offsets := video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets[sample_index1:sample_index2+1]
+    sample_sizes := video_atom.moov.traks[0].mdia.minf.stbl.stsz.entries_sizes[sample_index1:sample_index2+1]
+    fmt.println("stco.entry_count", video_atom.moov.traks[0].mdia.minf.stbl.stco.entry_count)
+    fmt.println("len(stco.chunk_offsets)", len(video_atom.moov.traks[0].mdia.minf.stbl.stco.chunks_offsets))
+    fmt.println("len(chunk_offsets)", len(chunk_offsets))
+    fmt.println("old data len", len(seg1_atom.mdat.data))
     seg1_atom.mdat.data = {}
     for i:=0;i<len(chunk_offsets);i+=1 {
         data := video[chunk_offsets[i]:chunk_offsets[i] + sample_sizes[i]]
         seg1_atom.mdat.data = slice.concatenate([][]byte{seg1_atom.mdat.data,data})
     }
+
+  
+    fmt.println("new data len", len(seg1_atom.mdat.data))
+
+    // ! !!!!!!!!!!!!!!!!!!
+    // for i:=0;i<int(seg1_atom.moof.trafs[0].trun.sample_count);i+=1 {
+    //     seg1_atom.moof.trafs[0].trun.samples[i].sample_composition_time_offset = 0
+    // }
+    seg1_atom.moof.mfhd.sequence_number = u32be(index)
+    //seg1_atom.moof.trafs[0].trun.data_offset = 0
+    // ! !!!!!!!!!!!!!!!!!!
     
     new_seg1_b := serialize_mp4(seg1_atom)
     
@@ -97,6 +113,8 @@ recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte){
     if err != os.ERROR_NONE {
         panic("FILE ERROR")
     }
+    
     defer os.close(file)
     os.write(file,  new_seg1_b)
+    fmt.println(sample_index2)
 }
