@@ -6,16 +6,16 @@
   compatible_brand = avc1
   compatible_brand = mp41
   compatible_brand = iso5
-[moov] size=8+666
+[moov] size=8+711
   [mvhd] size=12+96
     timescale = 1000
-    duration = 2075862
-    duration(ms) = 2075862
-  [trak] size=8+494
+    duration = 76246
+    duration(ms) = 76246
+  [trak] size=8+539
     [tkhd] size=12+80, flags=7
       enabled = 1
       id = 1
-      duration = 2075743
+      duration = 76243
       volume = 0
       layer = 0
       alternate_group = 0
@@ -28,18 +28,18 @@
       matrix_6 = 0.000000
       matrix_7 = 0.000000
       matrix_8 = 16384.000000
-      width = 1920.000000
-      height = 1080.000000
-    [mdia] size=8+394
+      width = 3840.000000
+      height = 2160.000000
+    [mdia] size=8+439
       [mdhd] size=12+20
-        timescale = 11988
+        timescale = 24000
         duration = 0
         duration(ms) = 0
         language = und
       [hdlr] size=12+41
         handler_type = vide
         handler_name = Bento4 Video Handler
-      [minf] size=8+301
+      [minf] size=8+346
         [vmhd] size=12+8, flags=1
           graphics_mode = 0
           op_color = 0000,0000,0000
@@ -47,23 +47,25 @@
           [dref] size=12+16
             [url ] size=12+0, flags=1
               location = [local to file]
-        [stbl] size=8+237
-          [stsd] size=12+157
+        [stbl] size=8+282
+          [stsd] size=12+202
             entry_count = 1
-            [avc1] size=8+145
+            [avc1] size=8+190
               data_reference_index = 1
-              width = 1920
-              height = 1080
-              compressor = 
-              [avcC] size=8+43
+              width = 3840
+              height = 2160
+              compressor = Lavc60.3.100 libx264
+              [avcC] size=8+49
                 Configuration Version = 1
                 Profile = High
                 Profile Compatibility = 0
-                Level = 50
+                Level = 51
                 NALU Length Size = 4
-                Sequence Parameter = [67 64 00 32 ac d9 80 78 02 27 e5 c0 44 00 00 03 01 f4 00 00 5d a8 3c 60 c6 68]
+                Sequence Parameter = [67 64 00 33 ac d9 80 3c 00 43 ec 05 a8 08 20 0a 00 00 07 d2 00 01 77 00 1e 30 63 34]
                 Picture Parameter = [68 e9 78 23 2c 8b]
+              [colr] size=8+11
               [pasp] size=8+8
+              [btrt] size=8+12
           [stts] size=12+4
             entry_count = 0
             entries:
@@ -79,7 +81,7 @@
             entries:
   [mvex] size=8+48
     [mehd] size=12+4
-      duration = 2075862
+      duration = 76246
     [trex] size=12+20
       track id = 1
       default sample description index = 1

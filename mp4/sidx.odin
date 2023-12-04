@@ -81,7 +81,7 @@ serialize_sidx :: proc(sidx: Sidx) ->  (data: []byte) {
         data = slice.concatenate([][]byte{data[:], earliest_presentation_time_extends_b[:]})
 
         first_offset_extends := sidx.first_offset_extends
-        first_offset_extends_b := (^[4]byte)(&first_offset_extends)^
+        first_offset_extends_b := (^[8]byte)(&first_offset_extends)^
         data = slice.concatenate([][]byte{data[:], first_offset_extends_b[:]})
     }else {
         earliest_presentation_time := sidx.earliest_presentation_time

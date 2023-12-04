@@ -14,14 +14,16 @@ Ftyp :: struct { // ftyp && styp
 serialize_ftype :: proc(ftyp: Ftyp) -> (data: []byte){
     box_b := serialize_box(ftyp.box)
     major_brand := ftyp.major_brand
-    major_version_b := slice.to_bytes([]u32be{major_brand})
-    data = slice.concatenate([][]byte{box_b, major_version_b})
+    major_brand_b := (^[4]byte)(&major_brand)^
+    data = slice.concatenate([][]byte{box_b, major_brand_b[:]})
     minor_version := ftyp.minor_version
-    minor_version_b := slice.to_bytes([]u32be{minor_version})
-    data = slice.concatenate([][]byte{data, minor_version_b})
-    compatible_brands := ftyp.compatible_brands
-    compatible_brands_b := slice.to_bytes(compatible_brands)
-    data = slice.concatenate([][]byte{data, compatible_brands_b})
+    minor_version_b := (^[4]byte)(&minor_version)^
+    data = slice.concatenate([][]byte{data, minor_version_b[:]})
+    for i:=0;i<len(ftyp.compatible_brands);i+=1 {
+        brand := ftyp.compatible_brands[i]
+        brand_b := (^[4]byte)(&brand)^
+        data = slice.concatenate([][]byte{data, brand_b[:]})
+    }
     return data
 }
 

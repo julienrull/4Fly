@@ -46,16 +46,10 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_udta(data[acc:])
                 moov.udta = atom
                 acc += atom_size
-                // fmt.println("name", name)
-                // fmt.println("atom.size", atom.box.size)
-                // fmt.println("atom_size", atom_size)
             case "mvex":
                 atom, atom_size := deserialize_mvex(data[acc:])
                 moov.mvex = atom
                 acc += atom_size
-                fmt.println("name", name)
-                fmt.println("atom.size", atom.box.size)
-                fmt.println("atom_size", atom_size)
             case:
                 panic(fmt.tprintf("moov sub box '%v' not implemented", name))
         }
