@@ -51,6 +51,175 @@ dump :: proc(data: []byte, size: u64, level: int = 0) -> (offset: u64) {
     return offset
 }
 
+
+get_segment_offsets :: proc(mp4: Mp4, trak_id: int, seg_index: int, sample_per_frag: int) -> (ctts_entries: []u32be) {
+    ctts_entries = make([]u32be, sample_per_frag)
+    target := seg_index * sample_per_frag
+    ctt_count := int(mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entry_count)
+    crawl_offset := 0
+    for i:=0;i<ctt_count;i+=1 {
+        offset := mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entries[i].sample_offset
+        count := int(mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entries[i].sample_count)
+        for j:=crawl_offset;j<crawl_offset+count;j+=1 {
+            if j >= target {
+                ctts_entries[j%sample_per_frag] = offset
+            }
+        }
+        crawl_offset += count
+        if crawl_offset >= target + sample_per_frag {
+            break
+        }
+    }
+    return ctts_entries
+}
+
+
+time_to_sample :: proc(trak: Trak, time: f64) -> (sample_number: int){
+    trak_timescale := trak.mdia.mdhd.timescale
+    stts := trak.mdia.minf.stbl.stts
+    sample_duration_sum : f64
+    sample_count_sum : int
+    for stts_entry in stts.entries {
+        grap_value := f64(stts_entry.sample_count * stts_entry.sample_delta / trak_timescale)
+        grap_count := stts_entry.sample_count
+        if( sample_duration_sum + grap_value >= time) {
+            remain := int((time - sample_duration_sum) * f64(trak_timescale))
+            return  sample_count_sum + remain / int(stts_entry.sample_delta) 
+        }else {
+            sample_duration_sum += grap_value
+            sample_count_sum += int(grap_count)
+        }
+    }
+    return 0
+}
+
+
+
+sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (int, int){
+    stsc := trak.mdia.minf.stbl.stsc
+    stsz := trak.mdia.minf.stbl.stsz
+    sample_count_sum : int
+    chunk_count_sum : int
+    for i:=0; i<len(stsc.entries);i+=1{
+        stsc_entry := stsc.entries[i]
+
+        // ? stsc_entry.first_chunk
+        // ? stsc_entry.sample_description_index
+        // ? stsc_entry.samples_per_chunk
+
+        chunk_count := 0
+        sample_count := 0
+        if i == len(stsc.entries) - 1 {
+            if sample_count_sum + int(stsc_entry.samples_per_chunk) == int(stsz.sample_count) {
+                chunk_count = 1
+                sample_count =  int(stsc_entry.samples_per_chunk)
+            }else{
+                chunk_count = int(stsz.sample_count)
+                sample_count =  int(stsc_entry.samples_per_chunk)
+            }
+        }else {
+            chunk_count =  int(stsc.entries[i+1].first_chunk - stsc_entry.first_chunk)
+            sample_count = chunk_count * int(stsc_entry.samples_per_chunk)
+        }
+        if(sample_count_sum + int(sample_count) >= sample_number) {
+            for j:=0; j<int(chunk_count);j+=1{
+                if sample_count_sum + (j + 1) * int(stsc_entry.samples_per_chunk) >= sample_number {
+                    return chunk_count_sum + j, sample_number - (sample_count_sum + (j * int(stsc_entry.samples_per_chunk)))
+                }
+            }
+        }else{
+            chunk_count_sum += int(chunk_count)
+            sample_count_sum += int(sample_count)
+        }
+    }
+
+    return 0, 0
+}
+
+get_chunk_offset :: proc(trak: Trak, chunk_number: int) -> u64 {
+    stco := trak.mdia.minf.stbl.stco
+    co64 := trak.mdia.minf.stbl.co64
+    return stco.entry_count > 0 ? u64(stco.chunks_offsets[chunk_number]) : u64(co64.chunks_offsets[chunk_number])
+}
+
+get_sample_size :: proc(trak: Trak, sample_number: int) -> (sample_size: u64) {
+    stsz := trak.mdia.minf.stbl.stsz
+    stz2 := trak.mdia.minf.stbl.stz2
+    if stsz.sample_size > 0 {
+        sample_size = u64(stsz.sample_size)
+    }else {
+        if stsz.sample_count > 0 {
+            sample_size = u64(stsz.entries_sizes[sample_number])
+        }else{
+            if stz2.sample_count > 0 {
+                samples_per_entry := 0
+                switch stz2.field_size {
+                    case 4:
+                        samples_per_entry = 8
+                    case 8:
+                        samples_per_entry = 4
+                    case 16:
+                        samples_per_entry = 2
+                }
+                index := sample_number / samples_per_entry
+                offset := ((sample_number % samples_per_entry) - 1) * samples_per_entry
+                sample_size = u64(stz2.entries_sizes[index] << u64(offset))
+            } 
+        }
+    }
+    return sample_size
+}
+
+get_sample_offset :: proc(trak: Trak, time: f64) -> u64 {
+    sample_number := time_to_sample(trak, time)
+    chunk_number, sample_position := sample_to_chunk(trak, sample_number)
+    chunk_offset := get_chunk_offset(trak, chunk_number)
+    offset_size: u64 = 0
+    for i:=0; i < sample_position - 1;i+=1{
+        offset_size += get_sample_size(trak, sample_number)
+    }
+    return chunk_offset + offset_size
+}
+
+get_composition_offset :: proc(trak: Trak, sample_number: int) -> u64 {
+    ctts := trak.mdia.minf.stbl.ctts
+    ctts_count := int(ctts.entry_count)
+    if ctts_count > 0 {
+        crawl_offset := 0
+        for i:=0;i<ctts_count;i+=1 {
+            offset := ctts.entries[i].sample_offset
+            count := int(ctts.entries[i].sample_count)
+            for j:=crawl_offset;j<crawl_offset+count;j+=1 {
+                if j >= sample_number {
+                    return u64(offset)
+                }
+            }
+        }
+    }
+    return 0
+}
+
+create_fragment :: proc(mp4: Mp4, segment_index: int, segment_duration: f32) -> (sidx: Sidx) {
+    // * Mp4 info
+    mp4_duration := mp4.moov.mvhd.duration // TODO: need version checking
+    mp4_timescale := mp4.moov.mvhd.timescale
+    traks := mp4.moov.traks
+    trak_count := len(traks)
+    
+    for i:=0; i<trak_count;i+=1 {
+        // * Fragment info
+        trak := traks[i]
+        trak_id := trak.tkhd.track_ID
+        trak_timescale := trak.mdia.mdhd.timescale
+
+    }
+
+    return sidx
+}
+
+
+
+
 recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte){
     fmt.println(len(seg1))
     time: f32 = 3.753750 // 3,753750
