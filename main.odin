@@ -8,9 +8,11 @@ import "core:slice"
 import "core:strings"
 import "core:strconv"
 import "core:testing"
+import "core:log"
 import "mp4"
 
 main :: proc() {
+    context.logger = log.create_console_logger()
     args := os.args[1:]
     size_video := os.file_size_from_path(args[0])
     size_seg := os.file_size_from_path(args[1])
@@ -35,11 +37,30 @@ main :: proc() {
     //mp4.recreate_seg_1(strconv.atoi(args[2]), vid, seg)
     mp4_box, mp4size := mp4.deserialize_mp4(vid, u64(size_video))
     for trak in mp4_box.moov.traks {
-        sample_number := mp4.time_to_sample(trak, 12.2)
-        fmt.println(sample_number)
-        fmt.println("---")
-        fmt.println(mp4.sample_to_chunk(trak, sample_number))
+        // sample_number := mp4.time_to_sample(trak, 12.2)
+        // fmt.println("Sample number")
+        // fmt.println("############")
+        // fmt.println(sample_number)
+        // fmt.println("############")
+        // fmt.println("---")
+        // chunk_number, sample_position := mp4.sample_to_chunk(trak, sample_number)
+        // fmt.println("Chunk number")
+        // fmt.println("############")
+        // fmt.println(chunk_number)
+        // fmt.println(sample_position, "-", sample_number)
+        // fmt.println("############")
+        // // fmt.println("---")
+        // chunk_index := chunk_number > 0 ? chunk_number : sample_number
+        // chunk_offset := mp4.get_chunk_offset(trak, chunk_index)
+        // fmt.println("Chuck offset")
+        // fmt.println("############")
+        // fmt.println(chunk_offset)
+        // fmt.println("############")
 
+
+        
+        sample_offset := mp4.get_sample_offset(trak, 12.2)
+        fmt.println(sample_offset)
     }
 
 }

@@ -1,6 +1,7 @@
 package mp4
 
 import "core:fmt"
+import "core:log"
 import "core:math"
 import "core:mem"
 import "core:os"
@@ -135,7 +136,7 @@ time_to_sample :: proc(trak: Trak, time: f64) -> (sample_number: int) {
 // 				for j := 0; j < int(chunk_count); j += 1 {
 // 					if sample_count_sum +  int(stsc_entry.samples_per_chunk)>=
 // 					sample_number {
-						
+
 // 						fmt.println("sample_count_sum", sample_count_sum, "chunk_count_sum", chunk_count_sum)
 // 						fmt.println("sample_number", sample_number, "chunk_count_sum", chunk_count_sum)
 // 						return chunk_count_sum,
@@ -155,62 +156,72 @@ time_to_sample :: proc(trak: Trak, time: f64) -> (sample_number: int) {
 // 	return 0, 0
 // }
 
-sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, sample_position: int) {
+sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, first_sample: int) {
 	stsc := trak.mdia.minf.stbl.stsc
 	stsz := trak.mdia.minf.stbl.stsz
 
 	samples_sum := 0
 	chunk_sum := 0
-	for i:=0;i<int(stsc.entry_count);i+=1{
+	for i := 0; i < int(stsc.entry_count); i += 1 {
 		// * Get chunk info
 		entry := stsc.entries[i]
 		first_sample := samples_sum + 1
-		chunk_count := 0
-		if stsc.entry_count == 1 {
-			chunk_count = int(stsz.sample_count)
-		}else if i == int(stsc.entry_count) - 1 {
-			chunk_count = 1 
-		}else{
-			chunk_count = int(stsc.entries[i+1].first_chunk - entry.first_chunk)
-		}
+		//chunk_count := 0
+		// if stsc.entry_count == 1 {
+		// 	chunk_count = int(stsz.sample_count)
+		// }else 
+		// if i == int(stsc.entry_count) - 1 {
+		// 	chunk_count = 1
+		// }else{
+		// 	chunk_count = int(stsc.entries[i+1].first_chunk - entry.first_chunk)
+		// }
 
-		//chunk_count := i == len(stsc.entries) - 1 ? 1 : stsc.entries[i+1].first_chunk - entry.first_chunk
+		chunk_count :=
+			i == len(stsc.entries) - 1 \
+			? 1 \
+			: int(stsc.entries[i + 1].first_chunk - entry.first_chunk)
 		sample_count := int(entry.samples_per_chunk) * chunk_count
 		// * Check bound
 		if sample_number < first_sample + int(sample_count) {
-			fmt.println("sample_number", sample_number, "first_sample", first_sample, "sample_count", sample_count)
-			fmt.println("first_sample + int(sample_count)", first_sample + int(sample_count))
-			fmt.println("first_chunk", entry.first_chunk)
-			fmt.println("chunk_count", chunk_count)
-			fmt.println("samples_sum", chunk_sum)
-			fmt.println("chunk_sum", chunk_sum)
-			for j:=0;j<int(chunk_count);j+=1{
-				first_sample = samples_sum + 1
+			fmt.println(
+				"sample_number",
+				sample_number,
+				"first_sample",
+				first_sample,
+				"sample_count",
+				sample_count,
+			)
+			// fmt.println("first_sample + int(sample_count)", first_sample + int(sample_count))
+			// fmt.println("first_chunk", entry.first_chunk)
+			// fmt.println("chunk_count", chunk_count)
+			// fmt.println("samples_sum", chunk_sum)
+			// fmt.println("chunk_sum", chunk_sum)
+			// fmt.println("i", i)
+			for j := 0; j < int(chunk_count); j += 1 {
 				if sample_number < first_sample + int(entry.samples_per_chunk) {
+					chunk_number = int(entry.first_chunk) + j
 					if chunk_count > 1 {
 						chunk_number = int(entry.first_chunk) + j - 1
-						sample_position = sample_number - first_sample + 1
-					}else {
-						chunk_number = int(entry.first_chunk) + j
-						sample_position = sample_number - first_sample
 					}
-					return chunk_number, sample_position
+					return chunk_number, first_sample
 				}
 				samples_sum += int(entry.samples_per_chunk)
-				chunk_sum += 1
+				first_sample = samples_sum + 1
+				//chunk_sum += 1
 			}
-		} 
+		}
 		// *
 		samples_sum += int(sample_count)
 		chunk_sum += int(chunk_count)
 	}
-	
-	return chunk_number, sample_position
+
+	return chunk_number, first_sample
 }
 
 get_chunk_offset :: proc(trak: Trak, chunk_number: int) -> u64 {
 	stco := trak.mdia.minf.stbl.stco
 	co64 := trak.mdia.minf.stbl.co64
+
 	return(
 		stco.entry_count > 0 \
 		? u64(stco.chunks_offsets[chunk_number]) \
@@ -248,12 +259,23 @@ get_sample_size :: proc(trak: Trak, sample_number: int) -> (sample_size: u64) {
 
 get_sample_offset :: proc(trak: Trak, time: f64) -> u64 {
 	sample_number := time_to_sample(trak, time)
-	chunk_number, sample_position := sample_to_chunk(trak, sample_number)
-	chunk_offset := get_chunk_offset(trak, chunk_number)
+	chunk_number, first_sample := sample_to_chunk(trak, sample_number)
+	chunk_index := chunk_number > 0 ? chunk_number : sample_number
+	chunk_offset := get_chunk_offset(trak, chunk_index)
 	offset_size: u64 = 0
-	for i := 0; i < sample_position - 1; i += 1 {
-		offset_size += get_sample_size(trak, sample_number)
+	if chunk_number > 0 {
+		for i := 0; i < sample_number - first_sample; i += 1 {
+			offset_size += get_sample_size(trak, first_sample + i)
+		}
 	}
+	log.infof(
+		"sample_number %d of chunk %d with %d bytes offset in trak %d has an offset of %d bytes.",
+		sample_number,
+		chunk_index,
+		chunk_offset,
+		trak.tkhd.track_ID,
+		chunk_offset + offset_size,
+	)
 	return chunk_offset + offset_size
 }
 
