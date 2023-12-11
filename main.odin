@@ -2,86 +2,58 @@ package main
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:log"
 import "core:mem"
 import "core:os"
 import "core:slice"
-import "core:strings"
 import "core:strconv"
+import "core:strings"
 import "core:testing"
-import "core:log"
 import "mp4"
 
+
 main :: proc() {
-    context.logger = log.create_console_logger()
-    args := os.args[1:]
-    size_video := os.file_size_from_path(args[0])
-    size_seg := os.file_size_from_path(args[1])
-    f_vid, f_vid_err := os.open(args[0])
-    if f_vid_err != 0 {
-        return
-    }
-    defer os.close(f_vid)
-    f_seg, f_seg_err := os.open(args[1])
-    if f_seg_err != 0 {
-        return
-    }
-    defer os.close(f_seg)
+	context.logger = log.create_console_logger()
+	args := os.args[1:]
+	size_video := os.file_size_from_path(args[0])
+	size_seg := os.file_size_from_path(args[1])
+	f_vid, f_vid_err := os.open(args[0])
+	if f_vid_err != 0 {
+		return
+	}
+	defer os.close(f_vid)
+	f_seg, f_seg_err := os.open(args[1])
+	if f_seg_err != 0 {
+		return
+	}
+	defer os.close(f_seg)
 
-    vid, vide_mem_err := mem.alloc_bytes((int)(size_video))
-    seg, seg_mem_err := mem.alloc_bytes((int)(size_seg))
-    defer delete(vid)
-    defer delete(seg)
-    os.read(f_vid, vid)
-    os.read(f_seg, seg)
+	vid, vide_mem_err := mem.alloc_bytes((int)(size_video))
+	seg, seg_mem_err := mem.alloc_bytes((int)(size_seg))
+	defer delete(vid)
+	defer delete(seg)
+	os.read(f_vid, vid)
+	os.read(f_seg, seg)
 
-    //mp4.recreate_seg_1(strconv.atoi(args[2]), vid, seg)
-    mp4_box, mp4size := mp4.deserialize_mp4(vid, u64(size_video))
-    for trak in mp4_box.moov.traks {
-        // sample_number := mp4.time_to_sample(trak, 12.2)
-        // fmt.println("Sample number")
-        // fmt.println("############")
-        // fmt.println(sample_number)
-        // fmt.println("############")
-        // fmt.println("---")
-        // chunk_number, sample_position := mp4.sample_to_chunk(trak, sample_number)
-        // fmt.println("Chunk number")
-        // fmt.println("############")
-        // fmt.println(chunk_number)
-        // fmt.println(sample_position, "-", sample_number)
-        // fmt.println("############")
-        // // fmt.println("---")
-        // chunk_index := chunk_number > 0 ? chunk_number : sample_number
-        // chunk_offset := mp4.get_chunk_offset(trak, chunk_index)
-        // fmt.println("Chuck offset")
-        // fmt.println("############")
-        // fmt.println(chunk_offset)
-        // fmt.println("############")
+	//mp4.recreate_seg_1(strconv.atoi(args[2]), vid, seg)
+	mp4_box, mp4_size := mp4.deserialize_mp4(vid, u64(size_video))
+	seg_box, seg_size := mp4.deserialize_mp4(seg, u64(size_seg))
 
+	// * STYP
+	seg_box.styp = mp4.create_styp(mp4_box)
+	// * SIDX
+	sidxs := mp4.create_sidxs(mp4_box, strconv.atoi(args[2]), 3.753750)
+	clear(&seg_box.sidxs)
+	for sidx in sidxs {
+		append(&seg_box.sidxs, sidx)
+	}
 
-        
-        sample_offset := mp4.get_sample_offset(trak, 12.2)
-        fmt.println(sample_offset)
-    }
+	// * MOOF
+	// * MFHD
+	seg_box.moof.mfhd.sequence_number = u32be(strconv.atoi(args[2]) + 1)
 
-}
-
-load_mp4 :: proc(src: string) -> mp4.Mp4 {
-    size_video := os.file_size_from_path(src)
-    f_vid, f_vid_err := os.open(src)
-    if f_vid_err != 0 {
-        panic("Error: file opening failed")
-    }
-    defer os.close(f_vid)
-    vid, vide_mem_err := mem.alloc_bytes((int)(size_video))
-    defer delete(vid)
-    mp4_box, mp4size := mp4.deserialize_mp4(vid, u64(size_video))
-    return mp4_box
-}
-
-
-
-
-@(test)
-test_time_to_sample :: proc(t: ^testing.T){
-    //testing.expect_value(t, )
+	new_seg := mp4.serialize_mp4(seg_box)
+	handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
+	defer os.close(handle)
+	os.write(handle, new_seg)
 }

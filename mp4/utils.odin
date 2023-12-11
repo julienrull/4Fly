@@ -100,62 +100,6 @@ time_to_sample :: proc(trak: Trak, time: f64) -> (sample_number: int) {
 	return 0
 }
 
-// sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (int, int) {
-// 	stsc := trak.mdia.minf.stbl.stsc
-// 	stsz := trak.mdia.minf.stbl.stsz
-// 	sample_count_sum: int
-// 	chunk_count_sum: int
-// 	for i := 0; i < len(stsc.entries); i += 1 {
-// 		stsc_entry := stsc.entries[i]
-
-// 		// ? stsc_entry.first_chunk
-// 		// ? stsc_entry.sample_description_index
-// 		// ? stsc_entry.samples_per_chunk
-// 		chunk_count := 0
-// 		sample_count := 0
-// 		if i == len(stsc.entries) - 1 {
-// 			if sample_count_sum + int(stsc_entry.samples_per_chunk) == int(stsz.sample_count) {
-// 				chunk_count = 1
-// 				sample_count = int(stsc_entry.samples_per_chunk)
-// 			} else {
-// 				chunk_count = int(stsz.sample_count)
-// 				sample_count = int(stsc_entry.samples_per_chunk)
-// 			}
-// 		} else {
-// 			chunk_count = int(stsc.entries[i + 1].first_chunk - stsc_entry.first_chunk)
-// 			sample_count = chunk_count * int(stsc_entry.samples_per_chunk)
-// 		}
-// 		// fmt.println("sample_count_sum + int(sample_count)", sample_count_sum, "i", i)
-// 		if (sample_count_sum + int(sample_count) >= sample_number) {
-// 			if chunk_count == 1 {
-// 				chunk_count_sum += 1
-// 				sample_count_sum += 1
-// 				return chunk_count_sum,
-// 					sample_number - sample_count_sum
-// 			}else {
-// 				for j := 0; j < int(chunk_count); j += 1 {
-// 					if sample_count_sum +  int(stsc_entry.samples_per_chunk)>=
-// 					sample_number {
-
-// 						fmt.println("sample_count_sum", sample_count_sum, "chunk_count_sum", chunk_count_sum)
-// 						fmt.println("sample_number", sample_number, "chunk_count_sum", chunk_count_sum)
-// 						return chunk_count_sum,
-// 						sample_number - sample_count_sum
-// 					}
-// 					chunk_count_sum += 1
-// 					sample_count_sum += int(stsc_entry.samples_per_chunk)
-// 				}
-// 			}
-
-// 		} else {
-// 			chunk_count_sum += int(chunk_count)
-// 			sample_count_sum += int(sample_count)
-// 		}
-// 	}
-
-// 	return 0, 0
-// }
-
 sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, first_sample: int) {
 	stsc := trak.mdia.minf.stbl.stsc
 	stsz := trak.mdia.minf.stbl.stsz
@@ -166,16 +110,6 @@ sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, f
 		// * Get chunk info
 		entry := stsc.entries[i]
 		first_sample := samples_sum + 1
-		//chunk_count := 0
-		// if stsc.entry_count == 1 {
-		// 	chunk_count = int(stsz.sample_count)
-		// }else 
-		// if i == int(stsc.entry_count) - 1 {
-		// 	chunk_count = 1
-		// }else{
-		// 	chunk_count = int(stsc.entries[i+1].first_chunk - entry.first_chunk)
-		// }
-
 		chunk_count :=
 			i == len(stsc.entries) - 1 \
 			? 1 \
@@ -191,12 +125,6 @@ sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, f
 				"sample_count",
 				sample_count,
 			)
-			// fmt.println("first_sample + int(sample_count)", first_sample + int(sample_count))
-			// fmt.println("first_chunk", entry.first_chunk)
-			// fmt.println("chunk_count", chunk_count)
-			// fmt.println("samples_sum", chunk_sum)
-			// fmt.println("chunk_sum", chunk_sum)
-			// fmt.println("i", i)
 			for j := 0; j < int(chunk_count); j += 1 {
 				if sample_number < first_sample + int(entry.samples_per_chunk) {
 					chunk_number = int(entry.first_chunk) + j
@@ -268,6 +196,7 @@ get_sample_offset :: proc(trak: Trak, time: f64) -> u64 {
 			offset_size += get_sample_size(trak, first_sample + i)
 		}
 	}
+	fmt.println(trak.mdia.minf.stbl.stss)
 	log.infof(
 		"sample_number %d of chunk %d with %d bytes offset in trak %d has an offset of %d bytes.",
 		sample_number,
@@ -297,22 +226,101 @@ get_composition_offset :: proc(trak: Trak, sample_number: int) -> u64 {
 	return 0
 }
 
-create_fragment :: proc(mp4: Mp4, segment_index: int, segment_duration: f32) -> (sidx: Sidx) {
+create_styp :: proc(mp4: Mp4) -> (styp: Ftyp){
+	return mp4.ftyp
+}
+
+
+create_sidxs :: proc(mp4: Mp4, segment_index: int, segment_duration: f32) -> []Sidx {
 	// * Mp4 info
 	mp4_duration := mp4.moov.mvhd.duration // TODO: need version checking
 	mp4_timescale := mp4.moov.mvhd.timescale
 	traks := mp4.moov.traks
 	trak_count := len(traks)
+	sidxs: []Sidx = make([]Sidx, 2)
+
+
 
 	for i := 0; i < trak_count; i += 1 {
+		// * FLAGS
+		has_duration := false
+		has_size := false
+		dafault_sample_flags := 0
+		tfhd_flags := 0
+		trun_flags := 0
+
 		// * Fragment info
 		trak := traks[i]
 		trak_id := trak.tkhd.track_ID
 		trak_timescale := trak.mdia.mdhd.timescale
+		// * styp
+		// * sidx
 
+		sidxs[i].fullbox.box.type = 0x73696478 // * string("sidxs[i]") to u32be
+		sidxs[i].fullbox.box.size = 52
+		//sidxs[i].fullbox.box.
+		sidxs[i].fullbox.version = 1
+		sidxs[i].reference_ID = trak_id
+		sidxs[i].timescale = trak_timescale
+		if trak_id == 1 {
+			sidxs[i].earliest_presentation_time_extends = 0
+		} else {
+			sidxs[i].earliest_presentation_time_extends = 0
+		}
+		sidxs[i].first_offset_extends = i == 0 ? u64be(sidxs[i].fullbox.box.size) : 0
+		sidxs[i].reference_count = 1
+		sidxs[i].items = make([]SegmentIndexBoxItems, sidxs[i].reference_count)
+		sidxs[i].items[0] = {
+			    reference_type = 0,
+			    referenced_size = 1618842, // file size
+			    subsegment_duration = trak_id == 0 ? u32be(segment_duration) * trak_timescale: 0,
+			    starts_with_SAP = 1,
+			    SAP_type = 0, 
+			    SAP_delta_time = 0
+		}
 	}
 
-	return sidx
+	return sidxs
+}
+
+create_moof :: proc(mp4: Mp4, segment_index: int) -> (moof: Moof){
+	moof.box.type = 0x6D6F6F66
+	moof.mfhd.sequence_number = u32be(segment_index)
+	moof.box.size = 8
+	for i := 0; i < len(mp4.moov.traks); i += 1 {
+		traf := create_traf(mp4)
+		append(&moof.trafs, traf)
+		moof.box.size += traf.box.size
+	}
+	return moof
+}
+
+create_traf :: proc(mp4: Mp4) -> (traf: Traf) {
+	traf.box.type = 0x74726166
+	traf.tfhd = create_tfhd(mp4)
+	traf.tfdt = create_tfdt(mp4)
+	traf.trun = create_trun(mp4)
+	traf.box.size = 8
+	traf.box.size += traf.tfhd.fullbox.box.size + traf.tfdt.fullbox.box.size + traf.trun.fullbox.box.size
+	return traf
+}
+
+create_tfhd :: proc(mp4: Mp4) -> (tfhd: Tfhd) {
+	tfhd.fullbox.box.type = 0x74666864
+	tfhd.fullbox.box.size = 28
+	return tfhd
+}
+
+create_tfdt :: proc(mp4: Mp4) -> (tfdt: Tfdt) {
+	tfdt.fullbox.box.type = 0x74666474
+	tfdt.fullbox.box.size = 20
+	return tfdt
+}
+
+create_trun :: proc(mp4: Mp4) -> (trun: Trun) {
+	trun.fullbox.box.type = 0x7472756E
+	trun.fullbox.box.size = 20
+	return trun
 }
 
 
