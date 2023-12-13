@@ -39,21 +39,51 @@ main :: proc() {
 	mp4_box, mp4_size := mp4.deserialize_mp4(vid, u64(size_video))
 	seg_box, seg_size := mp4.deserialize_mp4(seg, u64(size_seg))
 
-	// * STYP
-	seg_box.styp = mp4.create_styp(mp4_box)
-	// * SIDX
-	sidxs := mp4.create_sidxs(mp4_box, strconv.atoi(args[2]), 3.753750)
-	clear(&seg_box.sidxs)
-	for sidx in sidxs {
-		append(&seg_box.sidxs, sidx)
+	// * Input
+	segment_duration: f64 = 3.753750
+	segment_number := strconv.atoi(args[2])
+	input := mp4.Input {
+		mp4                        = &mp4_box,
+		segment_duration           = segment_duration,
+		segment_number             = segment_number,
+		segment_count              = int(
+			f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale) / segment_duration,
+		),
+		segment_video_sample_count = mp4.get_segment_sample_count(
+			mp4_box.moov.traks[0],
+			segment_number,
+			segment_duration,
+		),
+		segment_sound_sample_count = mp4.get_segment_sample_count(
+			mp4_box.moov.traks[1],
+			segment_number,
+			segment_duration,
+		),
 	}
 
-	// * MOOF
-	// * MFHD
-	seg_box.moof.mfhd.sequence_number = u32be(strconv.atoi(args[2]) + 1)
+	fmt.println("---")
+	fmt.println("segment_duration", input.segment_duration)
+	fmt.println("segment_count", input.segment_count)
+	fmt.println("segment_number", input.segment_number)
+	fmt.println("segment_video_sample_count", input.segment_video_sample_count)
+	fmt.println("segment_sound_sample_count", input.segment_sound_sample_count)
 
-	new_seg := mp4.serialize_mp4(seg_box)
-	handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
-	defer os.close(handle)
-	os.write(handle, new_seg)
+
+	// // * STYP
+	// seg_box.styp = mp4.create_styp(mp4_box)
+	// // * SIDX
+	// sidxs := mp4.create_sidxs(mp4_box, strconv.atoi(args[2]), 3.753750)
+	// clear(&seg_box.sidxs)
+	// for sidx in sidxs {
+	// 	append(&seg_box.sidxs, sidx)
+	// }
+
+	// // * MOOF
+	// // * MFHD
+	// seg_box.moof.mfhd.sequence_number = u32be(strconv.atoi(args[2]) + 1)
+
+	// new_seg := mp4.serialize_mp4(seg_box)
+	// handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
+	// defer os.close(handle)
+	// os.write(handle, new_seg)
 }
