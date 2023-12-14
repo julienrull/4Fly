@@ -42,31 +42,23 @@ main :: proc() {
 	// * Input
 	segment_duration: f64 = 3.753750
 	segment_number := strconv.atoi(args[2])
-	input := mp4.Input {
-		mp4                        = &mp4_box,
-		segment_duration           = segment_duration,
-		segment_number             = segment_number,
-		segment_count              = int(
-			f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale) / segment_duration,
-		),
-		segment_video_sample_count = mp4.get_segment_sample_count(
-			mp4_box.moov.traks[0],
-			segment_number,
-			segment_duration,
-		),
-		segment_sound_sample_count = mp4.get_segment_sample_count(
-			mp4_box.moov.traks[1],
-			segment_number,
-			segment_duration,
-		),
-	}
+
+	segment := mp4.new_segment(&mp4_box, segment_number, segment_duration)
 
 	fmt.println("---")
-	fmt.println("segment_duration", input.segment_duration)
-	fmt.println("segment_count", input.segment_count)
-	fmt.println("segment_number", input.segment_number)
-	fmt.println("segment_video_sample_count", input.segment_video_sample_count)
-	fmt.println("segment_sound_sample_count", input.segment_sound_sample_count)
+	fmt.println("segment_duration", segment.segment_duration)
+	fmt.println("segment_count", segment.segment_count)
+	fmt.println("segment_number", segment.segment_number)
+
+	fmt.println("segment_video_sample_count", segment.video_segment_sample_count)
+	fmt.println("video_decoding_times", segment.video_decoding_times)
+	fmt.println("video_presentation_time_offsets", segment.video_presentation_time_offsets)
+	fmt.println("video_sample_sizes", segment.video_sample_sizes)
+
+	fmt.println("segment_sound_sample_count", segment.sound_segment_sample_count)
+	fmt.println("sound_decoding_times", segment.sound_decoding_times)
+	fmt.println("sound_presentation_time_offsets", segment.sound_presentation_time_offsets)
+	fmt.println("sound_sample_sizes", segment.sound_sample_sizes)
 
 
 	// // * STYP
