@@ -442,10 +442,11 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 		handler_type := trak.mdia.hdlr.handler_type
 		
 		if i == 0 {
-			moof.trafs[i].trun.data_offset = i32be(moof.box.size)
+			moof.trafs[i].trun.data_offset = i32be(moof.box.size) + 8
 		}else {
 			moof.trafs[i].trun.data_offset = i32be(moof.box.size) + 8
 			prev_trak := segment.mp4.moov.traks[i - 1]
+			handler_type := prev_trak.mdia.hdlr.handler_type
 			sample_sizes := to_string(&handler_type) == "vide" ? segment.video_sample_sizes : segment.sound_sample_sizes
 			sample_size := to_string(&handler_type) == "vide" ? segment.video_default_size : segment.sound_default_size
 			sample_count := to_string(&handler_type) == "vide" ? segment.video_segment_sample_count : segment.sound_segment_sample_count
@@ -453,8 +454,8 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 			if len(sample_sizes) > 0 {
 				for s in sample_sizes {
 					size_cum += s
-				}
-				moof.trafs[i].trun.data_offset = i32be(size_cum)
+				} 
+				moof.trafs[i].trun.data_offset += i32be(size_cum)
 			}else {
 				moof.trafs[i].trun.data_offset = i32be(sample_size * u32be(sample_count))
 			}
@@ -469,13 +470,16 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 TRAF_TYPE :: 0x74726166
 
 create_traf :: proc(trak: Trak, segment: Segment) -> (traf: Traf) {
+	handler_type := trak.mdia.hdlr.handler_type
+	trak_type := to_string(&handler_type)
 	traf.box.type = TRAF_TYPE
 	tfhd_flags := TFHD_DEFAULT_SAMPLE_DURATION_PRESENT | TFHD_DEFAULT_SAMPLE_SIZE_PRESENT | TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT | TFHD_DEFAULT_BASE_IS_MOOF
 	traf.tfhd = create_tfhd(trak, segment, tfhd_flags)
 	traf.tfdt = create_tfdt(trak, segment)
-	trun_flags := TRUN_DATA_OFFSET_PRESENT | TRUN_FIRST_SAMPLE_FLAGS_PRESENT
-	handler_type := trak.mdia.hdlr.handler_type
-	trak_type := to_string(&handler_type)
+	trun_flags := TRUN_DATA_OFFSET_PRESENT
+	if trak_type == "vide" {
+		trun_flags |= TRUN_FIRST_SAMPLE_FLAGS_PRESENT
+	}
 	if trak.mdia.minf.stbl.stts.entry_count > 1 {
 		trun_flags |= TRUN_SAMPLE_DURATION_PRESENT
 	}
@@ -543,6 +547,7 @@ create_tfhd :: proc(trak: Trak, segment: Segment, tf_flags: int) -> (tfhd: Tfhd)
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT == TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT {
+		tfhd.default_sample_flags = to_string(&handler_type) == "vide" ? 0x1010000 : 0x2000000 
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DURATION_IS_EMPTY == TFHD_DURATION_IS_EMPTY {
@@ -560,7 +565,7 @@ TFDT_TYPE :: 0x74666474
 
 create_tfdt :: proc(trak: Trak, segment: Segment) -> (tfdt: Tfdt) {
 	tfdt.fullbox.box.type = TFDT_TYPE
-	tfdt.baseMediaDecodeTime_extends = u64be(segment.segment_duration * f64(trak.mdia.mdhd.timescale))
+	tfdt.baseMediaDecodeTime_extends = u64be(segment.segment_duration * f64(trak.mdia.mdhd.timescale)) * u64be(segment.segment_number)
 	tfdt.fullbox.version = 1
 	tfdt.fullbox.box.size = 20
 	return tfdt
@@ -576,6 +581,7 @@ TRUN_SAMPLE_FLAGS_PRESENT:: 0x000400
 TRUN_SAMPLE_COMPOSITION_TIME_OFFSETS_PRESENT:: 0x000800
 
 create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun) {
+	handler_type := trak.mdia.hdlr.handler_type
 	trun.fullbox.box.type = TRUN_TYPE
 	flags := u32be(tr_flags) << 8
 	trun.fullbox.flags = (^[3]byte)(&flags)^
@@ -586,10 +592,10 @@ create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun)
 	}
 	if tr_flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT == TRUN_FIRST_SAMPLE_FLAGS_PRESENT {
 		fmt.println("TRUN_FIRST_SAMPLE_FLAGS_PRESENT")
+		trun.first_sample_flags = to_string(&handler_type) == "vide" ? 0x2000000 : 0
 		size += size_of(u32be)
 	}
 
-	handler_type := trak.mdia.hdlr.handler_type
 	sample_count := to_string(&handler_type) == "vide" ?  segment.video_segment_sample_count : segment.sound_segment_sample_count
 	trun.sample_count = u32be(sample_count)
 	trun.samples = make([]TrackRunBoxSample, trun.sample_count)
@@ -660,6 +666,7 @@ create_mdat :: proc(segment: Segment) -> (mdat: Mdat) {
 		}
 	}
 	mdat.box.size += u32be(len(mdat.data))
+	
 	return mdat
 }
 

@@ -105,9 +105,11 @@ serialize_sidx :: proc(sidx: Sidx) -> (data: []byte) {
 	for i := 0; i < int(sidx.reference_count); i += 1 {
 		reference_type := sidx.items[i].reference_type
 		reference_type_u32be := u32be(reference_type)
-		reference_type_u32be = reference_type_u32be & 0x00000001
+		reference_type_u32be = reference_type_u32be
 		referenced_size := sidx.items[i].referenced_size
-		referenced_size = (referenced_size << 1) & 0xFFFFFFFE
+		referenced_size = (referenced_size << 1)
+		fmt.println("referenced_size", referenced_size)
+
 		tmp := reference_type_u32be | referenced_size
 		tmp_b := (^[4]byte)(&tmp)^
 		data = slice.concatenate([][]byte{data[:], tmp_b[:]})

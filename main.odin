@@ -44,7 +44,6 @@ main :: proc() {
 	segment_number := strconv.atoi(args[2])
 
 	segment := mp4.new_segment(&mp4_box, segment_number, segment_duration)
-
 	// fmt.println("---")
 	// fmt.println("segment_duration", segment.segment_duration)
 	// fmt.println("segment_count", segment.segment_count)
@@ -73,6 +72,12 @@ main :: proc() {
 	// * MOOF
 	seg_box.moof = mp4.create_moof(segment)
 	seg_box.mdat = mp4.create_mdat(segment)
+	seg_box.sidxs[0].items[0].referenced_size = u32be(
+		seg_box.moof.box.size + seg_box.mdat.box.size,
+	)
+	seg_box.sidxs[1].items[0].referenced_size = u32be(
+		seg_box.moof.box.size + seg_box.mdat.box.size,
+	)
 	new_seg := mp4.serialize_mp4(seg_box)
 	handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
 	defer os.close(handle)
