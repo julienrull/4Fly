@@ -45,37 +45,36 @@ main :: proc() {
 
 	segment := mp4.new_segment(&mp4_box, segment_number, segment_duration)
 
-	fmt.println("---")
-	fmt.println("segment_duration", segment.segment_duration)
-	fmt.println("segment_count", segment.segment_count)
-	fmt.println("segment_number", segment.segment_number)
+	// fmt.println("---")
+	// fmt.println("segment_duration", segment.segment_duration)
+	// fmt.println("segment_count", segment.segment_count)
+	// fmt.println("segment_number", segment.segment_number)
 
-	fmt.println("segment_video_sample_count", segment.video_segment_sample_count)
-	fmt.println("video_decoding_times", segment.video_decoding_times)
-	fmt.println("video_presentation_time_offsets", segment.video_presentation_time_offsets)
-	fmt.println("video_sample_sizes", segment.video_sample_sizes)
+	// fmt.println("segment_video_sample_count", segment.video_segment_sample_count)
+	// fmt.println("video_decoding_times", segment.video_decoding_times)
+	// fmt.println("video_presentation_time_offsets", segment.video_presentation_time_offsets)
+	// fmt.println("video_sample_sizes", segment.video_sample_sizes)
 
-	fmt.println("segment_sound_sample_count", segment.sound_segment_sample_count)
-	fmt.println("sound_decoding_times", segment.sound_decoding_times)
-	fmt.println("sound_presentation_time_offsets", segment.sound_presentation_time_offsets)
-	fmt.println("sound_sample_sizes", segment.sound_sample_sizes)
+	// fmt.println("segment_sound_sample_count", segment.sound_segment_sample_count)
+	// fmt.println("sound_decoding_times", segment.sound_decoding_times)
+	// fmt.println("sound_presentation_time_offsets", segment.sound_presentation_time_offsets)
+	// fmt.println("sound_sample_sizes", segment.sound_sample_sizes)
 
 
-	// // * STYP
-	// seg_box.styp = mp4.create_styp(mp4_box)
-	// // * SIDX
-	// sidxs := mp4.create_sidxs(mp4_box, strconv.atoi(args[2]), 3.753750)
-	// clear(&seg_box.sidxs)
-	// for sidx in sidxs {
-	// 	append(&seg_box.sidxs, sidx)
-	// }
+	// * STYP
+	seg_box.styp = mp4.create_styp(segment)
+	// * SIDX
+	sidxs := mp4.create_sidxs(segment)
+	clear(&seg_box.sidxs)
+	for sidx in sidxs {
+		append(&seg_box.sidxs, sidx)
+	}
 
-	// // * MOOF
-	// // * MFHD
-	// seg_box.moof.mfhd.sequence_number = u32be(strconv.atoi(args[2]) + 1)
-
-	// new_seg := mp4.serialize_mp4(seg_box)
-	// handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
-	// defer os.close(handle)
-	// os.write(handle, new_seg)
+	// * MOOF
+	seg_box.moof = mp4.create_moof(segment)
+	seg_box.mdat = mp4.create_mdat(segment)
+	new_seg := mp4.serialize_mp4(seg_box)
+	handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
+	defer os.close(handle)
+	os.write(handle, new_seg)
 }
