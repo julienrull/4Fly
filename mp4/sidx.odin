@@ -107,15 +107,19 @@ serialize_sidx :: proc(sidx: Sidx) -> (data: []byte) {
 		reference_type_u32be := u32be(reference_type)
 		reference_type_u32be = reference_type_u32be
 		referenced_size := sidx.items[i].referenced_size
-		referenced_size = (referenced_size << 1)
-		fmt.println("referenced_size", referenced_size)
+		//referenced_size = (referenced_size << 1)
 
 		tmp := reference_type_u32be | referenced_size
+		//tmp = referenced_size
+		fmt.println("referenced_size", tmp)
 		tmp_b := (^[4]byte)(&tmp)^
 		data = slice.concatenate([][]byte{data[:], tmp_b[:]})
+
+
 		subsegment_duration := sidx.items[i].subsegment_duration
 		subsegment_duration_b := (^[4]byte)(&subsegment_duration)^
 		data = slice.concatenate([][]byte{data[:], subsegment_duration_b[:]})
+
 		starts_with_SAP := sidx.items[i].starts_with_SAP
 		starts_with_SAP_u32 := u32be(starts_with_SAP)
 		//starts_with_SAP_u32 = starts_with_SAP_u32 & 0x00000001

@@ -75,7 +75,6 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 		//* STSZ Get segment sample sizes
 		end_sample_index :=  sample_cum
 		start_sample_index := end_sample_index - sample_count
-		fmt.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", end_sample_index - start_sample_index)
 		// * CTTS samples presentation times
 		presentation_time_offsets: [dynamic]u32be
 		ctts := trak.mdia.minf.stbl.ctts
@@ -236,41 +235,35 @@ sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, f
 
 	samples_sum := 0
 	chunk_sum := 0
-	for i := 0; i < int(stsc.entry_count); i += 1 {
-		// * Get chunk info
-		entry := stsc.entries[i]
-		first_sample := samples_sum + 1
-		chunk_count :=
-			i == len(stsc.entries) - 1 \
-			? 1 \
-			: int(stsc.entries[i + 1].first_chunk - entry.first_chunk)
-		sample_count := int(entry.samples_per_chunk) * chunk_count
-		// * Check bound
-		if sample_number < first_sample + int(sample_count) {
-			fmt.println(
-				"sample_number",
-				sample_number,
-				"first_sample",
-				first_sample,
-				"sample_count",
-				sample_count,
-			)
-			for j := 0; j < int(chunk_count); j += 1 {
-				if sample_number < first_sample + int(entry.samples_per_chunk) {
-					chunk_number = int(entry.first_chunk) + j
-					if chunk_count > 1 {
-						chunk_number = int(entry.first_chunk) + j - 1
+	if(int(stsc.entry_count) > 1) {		
+		for i := 0; i < int(stsc.entry_count); i += 1 {
+			// * Get chunk info
+			entry := stsc.entries[i]
+			first_sample := samples_sum + 1
+			chunk_count :=
+				i == len(stsc.entries) - 1 \
+				? 1 \
+				: int(stsc.entries[i + 1].first_chunk - entry.first_chunk)
+			sample_count := int(entry.samples_per_chunk) * chunk_count
+			// * Check bound
+			if sample_number < first_sample + int(sample_count) {
+				for j := 0; j < int(chunk_count); j += 1 {
+					if sample_number < first_sample + int(entry.samples_per_chunk) {
+						chunk_number = int(entry.first_chunk) + j
+						if chunk_count > 1 {
+							chunk_number = int(entry.first_chunk) + j - 1
+						}
+						return chunk_number, first_sample
 					}
-					return chunk_number, first_sample
+					samples_sum += int(entry.samples_per_chunk)
+					first_sample = samples_sum + 1
+					//chunk_sum += 1
 				}
-				samples_sum += int(entry.samples_per_chunk)
-				first_sample = samples_sum + 1
-				//chunk_sum += 1
 			}
+			// *
+			samples_sum += int(sample_count)
+			chunk_sum += int(chunk_count)
 		}
-		// *
-		samples_sum += int(sample_count)
-		chunk_sum += int(chunk_count)
 	}
 
 	return chunk_number, first_sample
@@ -322,19 +315,23 @@ get_sample_offset :: proc(trak: Trak, time: f64) -> u64 {
 	chunk_offset := get_chunk_offset(trak, chunk_index)
 	offset_size: u64 = 0
 	if chunk_number > 0 {
-		for i := 0; i < sample_number - first_sample; i += 1 {
+		for i := 0; i < sample_number - first_sample - 1; i += 1 {
 			offset_size += get_sample_size(trak, first_sample + i)
 		}
+	}else {
+		offset_size += get_sample_size(trak, first_sample)
 	}
-	fmt.println(trak.mdia.minf.stbl.stss)
-	log.infof(
-		"sample_number %d of chunk %d with %d bytes offset in trak %d has an offset of %d bytes.",
-		sample_number,
-		chunk_index,
-		chunk_offset,
-		trak.tkhd.track_ID,
-		chunk_offset + offset_size,
-	)
+	// log.infof(
+	// 	"sample_number %d of chunk %d with %d bytes offset in trak %d has an offset of %d bytes.",
+	// 	sample_number,
+	// 	chunk_index,
+	// 	chunk_offset,
+	// 	trak.tkhd.track_ID,
+	// 	chunk_offset + offset_size,
+	// )
+	fmt.println("sample_number", sample_number)
+	fmt.println("chunk_number", chunk_number)
+	fmt.println("chunk_offset", chunk_offset)
 	return chunk_offset + offset_size
 }
 
@@ -358,7 +355,6 @@ get_composition_offset :: proc(trak: Trak, sample_number: int) -> u64 {
 STYP_TYPE :: 0x73747970
 create_styp :: proc(segment: Segment) -> (styp: Ftyp){
 	segment.mp4.ftyp.box.type = STYP_TYPE
-	fmt.println(to_string(&segment.mp4.ftyp.box.type))
 	return segment.mp4.ftyp
 }
 
@@ -427,7 +423,6 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 	moof.box.type = MOOF_TYPE
 
 	moof.mfhd.fullbox.box.type = MFHD_TYPE
-	fmt.println("MFHD_TYPE", to_string(&moof.mfhd.fullbox.box.type))
 	moof.mfhd.fullbox.box.size = 16
 	moof.box.size = 8 + moof.mfhd.fullbox.box.size
 	moof.mfhd.sequence_number = u32be(segment.segment_number) + 1
@@ -462,7 +457,6 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 			
 		}
 	}
-	fmt.println("WE MA SMOOTH", moof.box.size)
 	return moof
 }
 
@@ -636,33 +630,43 @@ MDAT_TYPE :: 0x6D646174
 create_mdat :: proc(segment: Segment) -> (mdat: Mdat) {
 	mdat.box.type = MDAT_TYPE
 	mdat.box.size = 8
-	mdat.data = {}
 	
 	for i := 0; i < len(segment.mp4.moov.traks); i += 1 {
 		trak := segment.mp4.moov.traks[i]
-		// * Get chunk STSC
-		sample_counter := 0
-		chunk_index := 0
 		stsc := trak.mdia.minf.stbl.stsc
-		for i:=0;i<int(stsc.entry_count);i+=1 {
-		    if sample_counter >= segment.segment_number {
-		        chunk_index = i 
-		        break
-		    }
-		    sample_counter += int(stsc.entries[i].samples_per_chunk)
-		}
-		// * Get chunk offset STCO
 		handler_type := trak.mdia.hdlr.handler_type
 		min := to_string(&handler_type) == "vide" ? segment.video_sample_min : segment.sound_sample_min
 		max := to_string(&handler_type) == "vide" ? segment.video_sample_max : segment.sound_sample_max
+		sample_count := to_string(&handler_type) == "vide" ? segment.video_segment_sample_count : segment.sound_segment_sample_count
+		sample_offset_cum := 0
+		decoding_times := to_string(&handler_type) == "vide" ? segment.video_decoding_times : segment.sound_decoding_times
+		semple_sizes := to_string(&handler_type) == "vide" ? segment.video_sample_sizes : segment.sound_sample_sizes
+		default_size := to_string(&handler_type) == "vide" ? segment.video_default_size : segment.sound_default_size
+		presentation_offset := to_string(&handler_type) == "vide" ? segment.video_presentation_time_offsets : segment.sound_presentation_time_offsets
 
-		chunk_offsets := trak.mdia.minf.stbl.stco.chunks_offsets[min:max]
-		sample_sizes := trak.mdia.minf.stbl.stsz.entries_sizes[min:max]
-
-		
-		for i:=0;i<len(chunk_offsets);i+=1 {
-		    data := segment.mp4.mdat.data[chunk_offsets[i]:chunk_offsets[i] + sample_sizes[i]]
+		for j:=0;j<sample_count;j+=1 {
+			decoding_time: = 0
+			sample_count_cum := 0
+			for dt in decoding_times {
+				if sample_count_cum + int(dt[0]) > j {
+					decoding_time += int(dt[1]) * (j - sample_count_cum)
+					break
+				}else{
+					decoding_time += int(dt[1] * dt[0])
+				}
+				sample_count_cum += int(dt[0])
+			}
+			decoding_time_scaled: f64 = j == 0 && segment.segment_number == 0 ? 0 : f64(decoding_time) / f64(trak.mdia.mdhd.timescale)
+			time := segment.segment_duration * f64(segment.segment_number) + decoding_time_scaled
+			fmt.println(time)
+			sample_offset := get_sample_offset(trak, time)
+			size := len(semple_sizes) > 0 ? int(semple_sizes[j]) : int(default_size)
+			//log.infof("%v - %v", j, sample_offset)
+			index1 := sample_offset > 0 ? sample_offset - u64(size) : 0
+			index2 := sample_offset
+		    data := segment.mp4.mdat.data[index1 : index2 + 1]
 		    mdat.data = slice.concatenate([][]byte{mdat.data,data})
+		    sample_offset_cum += int(sample_offset)
 		}
 	}
 	mdat.box.size += u32be(len(mdat.data))
@@ -672,7 +676,6 @@ create_mdat :: proc(segment: Segment) -> (mdat: Mdat) {
 
 
 recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte) {
-	fmt.println(len(seg1))
 	time: f32 = 3.753750 // 3,753750
 	seg1_atom, seg1_atom_size := deserialize_mp4(seg1, u64(len(seg1)))
 	video_atom, video_atom_size := deserialize_mp4(video, u64(len(video)))
@@ -694,7 +697,6 @@ recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte) {
 		0 \
 		? int(time / sample_duration) \
 		: sample_count % int(time / sample_duration)
-	fmt.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", index, sample_per_frag)
 	// * Get Sample Index
 	sample_min := index * sample_per_frag
 	sample_max := min(sample_min + sample_per_frag, sample_count)
@@ -763,7 +765,6 @@ recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte) {
 
 
 	new_seg1_b := serialize_mp4(seg1_atom)
-	fmt.println(len(new_seg1_b))
 	file, err := os.open(fmt.tprintf("./test5/seg-%d.m4s", index), os.O_CREATE)
 	if err != os.ERROR_NONE {
 		panic("FILE ERROR")
