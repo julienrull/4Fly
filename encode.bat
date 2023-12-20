@@ -20,4 +20,4 @@ call encoder.exe test5\test5.mp4 seg-16.m4s 16
 call encoder.exe test5\test5.mp4 seg-17.m4s 17 
 call encoder.exe test5\test5.mp4 seg-18.m4s 18 
 call encoder.exe test5\test5.mp4 seg-19.m4s 19 
-call encoder.exe test5\test5.mp4 seg-20.m4s 20
+rem call encoder.exe test5\test5.mp4 seg-20.m4s 20

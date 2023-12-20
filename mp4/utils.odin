@@ -21,102 +21,163 @@ Segment :: struct {
 	sound_sample_max: int,
 
 	video_segment_sample_count: int,
-	video_decoding_times: [dynamic][2]u32be,
+	//video_decoding_times: [dynamic][2]u32be,
+	video_decoding_times: []u32be,
 	video_presentation_time_offsets: [dynamic]u32be,
 	video_sample_sizes: []u32be,
 	video_default_size: u32be,
 
 	sound_segment_sample_count: int,
-	sound_decoding_times: [dynamic][2]u32be,
+	//sound_decoding_times: [dynamic][2]u32be,
+	sound_decoding_times: []u32be,
 	sound_presentation_time_offsets: [dynamic]u32be,
 	sound_sample_sizes: []u32be,
 	sound_default_size: u32be,
 }
 
+
 new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (segment: Segment)  {
 	segment.mp4 = mp4
 	segment.segment_number = segment_number
 	segment.segment_duration = segment_duration
-	segment.segment_count = int(mp4.moov.mvhd.duration / mp4.moov.mvhd.timescale)
+	segment_count_f := f64(mp4.moov.mvhd.duration) / f64(mp4.moov.mvhd.timescale) / segment_duration
+	segment.segment_count = int(segment_count_f)
+	if segment_count_f > f64(segment.segment_count){
+		segment.segment_count += 1
+	} 
 
 	starting_time := f64(segment_number) * segment_duration
 	ending_time := starting_time + segment_duration
 
 
 
+	
+	
+	
 	for trak in mp4.moov.traks {
 		stts := trak.mdia.minf.stbl.stts
+		handler_type := trak.mdia.hdlr.handler_type
+		trak_type := to_string(&handler_type)
 		time_cum: f64
 		sample_count := 0
 		decoding_times: [dynamic][2]u32be = make([dynamic][2]u32be, 0, 16)
 		sample_cum := 0
+		index := segment.segment_number + 1
 
-		// * STTS sample count and decoding times
-		for i:=0;i<int(stts.entry_count);i+=1 {
-			entry := stts.entries[i]
-			time := f64(entry.sample_delta) * f64(entry.sample_count) / f64(trak.mdia.mdhd.timescale)
-			if time_cum + time >= starting_time {
-				if(time_cum + time <= ending_time) {
-					sample_count += int(entry.sample_count)
-					append(&decoding_times, [2]u32be{entry.sample_count, entry.sample_delta})
-				}else {
-					new_time_cum := time_cum > 0 ? time_cum : starting_time 
-					remain := int((ending_time - new_time_cum) / (f64(entry.sample_delta) / f64(trak.mdia.mdhd.timescale)))
-					sample_count += remain
-					append(&decoding_times, [2]u32be{u32be(remain), entry.sample_delta})
-					sample_cum += time_cum > 0 ? sample_count : sample_count * (segment_number + 1)
-					//fmt.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", sample_cum)
-					break
+		sample_number, _ := get_segment_first_sample(trak, u32be(index), segment.segment_duration)
+		sample_number_prev, _ := get_segment_first_sample(trak, u32be(index - 1), segment.segment_duration)
+		fmt.println("sample_number_prev", sample_number_prev)
+		fmt.println("sample_number", sample_number)
+
+		segment_sample_count := int(sample_number - sample_number_prev)
+		if trak_type == "vide"{
+			segment.video_segment_sample_count = segment_sample_count
+			segment.video_sample_sizes = make([]u32be, segment_sample_count)
+			segment.video_decoding_times = make([]u32be, segment_sample_count)
+		}else{
+			segment.sound_segment_sample_count = segment_sample_count
+			segment.sound_sample_sizes = make([]u32be, segment_sample_count)
+			segment.sound_decoding_times = make([]u32be, segment_sample_count)
+		}
+		i := 0
+		for sample in int(sample_number_prev)..<int(sample_number) {
+			if trak_type == "vide" {
+				segment.video_decoding_times[i] = get_sample_duration(trak, u32be(sample))
+				if(trak.mdia.minf.stbl.stsz.sample_count > 0) {
+					segment.video_sample_sizes[i] = u32be(get_sample_size(trak, u32be(sample)))
 				}
+				segment.video_default_size = trak.mdia.minf.stbl.stsz.sample_size
+				append(&segment.video_presentation_time_offsets, get_sample_presentation_offset(trak, u32be(sample)))
+				segment.video_sample_min = int(sample_number_prev)
+				segment.video_sample_max = int(sample_number)
+			}else {
+				segment.sound_decoding_times[i] = get_sample_duration(trak, u32be(sample))
+				if(trak.mdia.minf.stbl.stsz.sample_count > 0) {
+					segment.sound_sample_sizes[i] = u32be(get_sample_size(trak, u32be(sample)))
+				}
+				segment.sound_default_size = trak.mdia.minf.stbl.stsz.sample_size
+				append(&segment.sound_presentation_time_offsets, get_sample_presentation_offset(trak, u32be(sample)))
+				segment.sound_sample_min = int(sample_number_prev)
+				segment.sound_sample_max = int(sample_number)
 			}
-			time_cum += f64(entry.sample_delta) * f64(entry.sample_count) / f64(trak.mdia.mdhd.timescale)
-			sample_cum += int(entry.sample_count)
-		}
-		//* STSZ Get segment sample sizes
-		end_sample_index :=  sample_cum
-		start_sample_index := end_sample_index - sample_count
-		// * CTTS samples presentation times
-		presentation_time_offsets: [dynamic]u32be
-		ctts := trak.mdia.minf.stbl.ctts
-		if ctts.entry_count > 0 {
-			presentation_time_offsets = get_segment_presentation_times(trak, segment_number, sample_count)
+			i+=1
 		}
 
-		handler_type := trak.mdia.hdlr.handler_type
-		if to_string(&handler_type) == "vide"{
-			segment.video_sample_min = start_sample_index
-			segment.video_sample_max = end_sample_index
-			segment.video_segment_sample_count = sample_count
-			segment.video_decoding_times = decoding_times
-			segment.video_presentation_time_offsets = presentation_time_offsets
-			if trak.mdia.minf.stbl.stsz.sample_count > 0 {
-				segment.video_sample_sizes = trak.mdia.minf.stbl.stsz.entries_sizes[start_sample_index:end_sample_index]
-			}else if trak.mdia.minf.stbl.stsz.sample_size != 0 {
-				segment.video_default_size = trak.mdia.minf.stbl.stsz.sample_size
-			}else {
-				// stz2 case
-			}
-		}else if to_string(&handler_type) == "soun"{
-			segment.sound_sample_min = start_sample_index
-			segment.sound_sample_max = end_sample_index
-			segment.sound_segment_sample_count = sample_count
-			segment.sound_decoding_times = decoding_times
-			segment.sound_presentation_time_offsets = presentation_time_offsets
-			
-			if trak.mdia.minf.stbl.stsz.sample_count > 0 {
-				segment.sound_sample_sizes = trak.mdia.minf.stbl.stsz.entries_sizes[start_sample_index:end_sample_index]
-			}else if trak.mdia.minf.stbl.stsz.sample_size != 0 {
-				segment.sound_default_size = trak.mdia.minf.stbl.stsz.sample_size
-			}else {
-				// stz2 case
-			}
-		}
+
 	}
 	return segment
 }
 
-get_segment_presentation_times :: proc(trak: Trak, segment_number: int, samples_per_segment: int) -> (cts: [dynamic]u32be) {
-	target := segment_number * samples_per_segment
+get_sample_duration :: proc(trak: Trak, sample_number: u32be) -> (sample_duration: u32be){
+	sample_cum: u32be = 1
+	for stts in trak.mdia.minf.stbl.stts.entries {
+		if sample_cum + stts.sample_count >  sample_number {
+			sample_duration = stts.sample_delta
+			//fmt.println(sample_duration)
+			break
+		}
+		sample_cum += stts.sample_count
+	}
+	return sample_duration
+}
+
+get_sample_presentation_offset :: proc(trak: Trak, sample_number: u32be) -> (presentation_offset: u32be){
+	sample_sum: u32be = 1 
+	if(trak.mdia.minf.stbl.ctts.entry_count > 0){
+		for ctts in trak.mdia.minf.stbl.ctts.entries {
+			if sample_sum + ctts.sample_count >  sample_number {
+				presentation_offset = ctts.sample_offset
+				break
+			}
+			sample_sum += ctts.sample_count
+		}
+	}
+	return presentation_offset
+}
+
+
+
+
+get_segment_first_sample :: proc(trak: Trak, segment_number: u32be, segment_duration_scaled: f64) -> (sample_number: u32be, sample_duration: u32be) {
+
+	// * Variables
+	timescale := trak.mdia.mdhd.timescale
+	segment_duration := u32be(segment_duration_scaled * f64(timescale))
+	segment_begin_time := segment_duration * segment_number
+	stts := trak.mdia.minf.stbl.stts
+	sample_number = 1
+	//fmt.println("segment_number", segment_number)
+
+
+	// * Get samples decoding times offsets
+	for stts in stts.entries {
+		// * Variables
+		sample_count := stts.sample_count
+		sample_duration := stts.sample_delta
+		stts_duration := sample_count * sample_duration
+		sample_duration_cum: u32be
+		// * Find segment range
+		if sample_duration_cum + stts_duration >= segment_begin_time {
+			target_stts_begin := sample_duration_cum
+			target_stts_end := sample_duration_cum + stts_duration
+			remain_time_to_begin := segment_begin_time - target_stts_begin
+			sample_number_begin := sample_duration_cum + remain_time_to_begin / stts.sample_delta
+			sample_number = sample_number_begin + 1
+			sample_duration = stts.sample_delta
+			return sample_number, sample_duration
+		}
+		sample_duration_cum += stts_duration
+	}
+
+
+	return sample_number, sample_duration
+}
+
+
+
+get_segment_presentation_times :: proc(trak: Trak, segment_number: u32be, samples_per_segment: u32be, segment_duration:  f64) -> (cts: [dynamic]u32be) {
+	log.debugf("segment_number: %v, samples_per_segment: %v, segment_duration: %v", segment_number, samples_per_segment, segment_duration)
+	first_sample, first_sample_duation  := get_segment_first_sample(trak, segment_number,  segment_duration)
 	ctts_count := int(trak.mdia.minf.stbl.ctts.entry_count)
 	crawl_offset := 0
 	cts = make([dynamic]u32be, 0, 16) 
@@ -126,19 +187,63 @@ get_segment_presentation_times :: proc(trak: Trak, segment_number: int, samples_
 		count := int(ctts.sample_count)
 		next_crawl_offset := crawl_offset + count
 		for j:=crawl_offset; j < next_crawl_offset; j += 1 {
-			if crawl_offset >= target + samples_per_segment {
+			if crawl_offset > int(first_sample + samples_per_segment) {
 				break
 			}
-			if j >= target {
+			if j > int(first_sample) {
 				append(&cts, offset)
 			}
 			crawl_offset += 1
 		}
-		if crawl_offset >= target + samples_per_segment {
+		if crawl_offset > int(first_sample + samples_per_segment) {
 			break
 		}
 	}
 	return cts
+}
+
+
+sample_to_chunk :: proc(trak: Trak, sample_number: u32be) -> (chunk_number: u32be, first_sample: u32be) {
+	stsc := trak.mdia.minf.stbl.stsc
+	stsz := trak.mdia.minf.stbl.stsz
+
+	chunk_number = 1
+	first_sample = 1
+	samples_sum: u32be = 1
+	//chunk_sum := 0
+
+	if(int(stsc.entry_count) > 1) {		
+		for i := 0; i < int(stsc.entry_count); i += 1 {
+			// * Variables
+			entry := stsc.entries[i]
+			first_chunk := entry.first_chunk
+			samples_per_chunk := entry.samples_per_chunk
+			sample_desc_index := entry.sample_description_index
+			first_sample := samples_sum
+			chunk_count: u32be
+			if i == int(stsc.entry_count) - 1 {
+				chunk_count = 0
+			}else {
+				chunk_count = stsc.entries[i + 1].first_chunk - first_chunk
+			}
+			next_first_sample := samples_sum + chunk_count * samples_per_chunk
+			// * Entry found
+			if next_first_sample > sample_number {
+				// * search sub chunk
+				for cn in first_chunk..<first_chunk + chunk_count{
+					samples_sum_next := samples_sum + samples_per_chunk
+					if samples_sum_next > sample_number{
+						return cn, samples_sum
+					}
+					samples_sum = samples_sum_next
+				}
+			}
+			// * MAJ
+			samples_sum = next_first_sample
+		}
+
+	}
+		return chunk_number, first_sample
 }
 
 
@@ -181,116 +286,31 @@ dump :: proc(data: []byte, size: u64, level: int = 0) -> (offset: u64) {
 }
 
 
-get_segment_offsets :: proc(
-	mp4: Mp4,
-	trak_id: int,
-	seg_index: int,
-	sample_per_frag: int,
-) -> (
-	ctts_entries: []u32be,
-) {
-	ctts_entries = make([]u32be, sample_per_frag)
-	target := seg_index * sample_per_frag
-	ctt_count := int(mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entry_count)
-	crawl_offset := 0
-	for i := 0; i < ctt_count; i += 1 {
-		offset := mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entries[i].sample_offset
-		count := int(mp4.moov.traks[trak_id - 1].mdia.minf.stbl.ctts.entries[i].sample_count)
-		for j := crawl_offset; j < crawl_offset + count; j += 1 {
-			if j >= target {
-				ctts_entries[j % sample_per_frag] = offset
-			}
-		}
-		crawl_offset += count
-		if crawl_offset >= target + sample_per_frag {
-			break
-		}
-	}
-	return ctts_entries
-}
 
 
-time_to_sample :: proc(trak: Trak, time: f64) -> (sample_number: int) {
-	trak_timescale := trak.mdia.mdhd.timescale
-	stts := trak.mdia.minf.stbl.stts
-	sample_duration_sum: f64
-	sample_count_sum: int
-	for stts_entry in stts.entries {
-		grap_value := f64(stts_entry.sample_count * stts_entry.sample_delta / trak_timescale)
-		grap_count := stts_entry.sample_count
-		if (sample_duration_sum + grap_value >= time) {
-			remain := int((time - sample_duration_sum) * f64(trak_timescale))
-			return sample_count_sum + remain / int(stts_entry.sample_delta)
-		} else {
-			sample_duration_sum += grap_value
-			sample_count_sum += int(grap_count)
-		}
-	}
-	return 0
-}
 
-sample_to_chunk :: proc(trak: Trak, sample_number: int) -> (chunk_number: int, first_sample: int) {
-	stsc := trak.mdia.minf.stbl.stsc
-	stsz := trak.mdia.minf.stbl.stsz
-
-	samples_sum := 0
-	chunk_sum := 0
-	if(int(stsc.entry_count) > 1) {		
-		for i := 0; i < int(stsc.entry_count); i += 1 {
-			// * Get chunk info
-			entry := stsc.entries[i]
-			first_sample := samples_sum + 1
-			chunk_count :=
-				i == len(stsc.entries) - 1 \
-				? 1 \
-				: int(stsc.entries[i + 1].first_chunk - entry.first_chunk)
-			sample_count := int(entry.samples_per_chunk) * chunk_count
-			// * Check bound
-			if sample_number < first_sample + int(sample_count) {
-				for j := 0; j < int(chunk_count); j += 1 {
-					if sample_number < first_sample + int(entry.samples_per_chunk) {
-						chunk_number = int(entry.first_chunk) + j
-						if chunk_count > 1 {
-							chunk_number = int(entry.first_chunk) + j - 1
-						}
-						return chunk_number, first_sample
-					}
-					samples_sum += int(entry.samples_per_chunk)
-					first_sample = samples_sum + 1
-					//chunk_sum += 1
-				}
-			}
-			// *
-			samples_sum += int(sample_count)
-			chunk_sum += int(chunk_count)
-		}
-	}
-
-	return chunk_number, first_sample
-}
-
-get_chunk_offset :: proc(trak: Trak, chunk_number: int) -> u64 {
+get_chunk_offset :: proc(trak: Trak, chunk_number: u32be) -> u64 {
 	stco := trak.mdia.minf.stbl.stco
 	co64 := trak.mdia.minf.stbl.co64
 
 	return(
 		stco.entry_count > 0 \
-		? u64(stco.chunks_offsets[chunk_number]) \
-		: u64(co64.chunks_offsets[chunk_number]) \
+		? u64(stco.chunks_offsets[chunk_number - 1]) \
+		: u64(co64.chunks_offsets[chunk_number - 1]) \
 	)
 }
 
-get_sample_size :: proc(trak: Trak, sample_number: int) -> (sample_size: u64) {
+get_sample_size :: proc(trak: Trak, sample_number: u32be) -> (sample_size: u64) {
 	stsz := trak.mdia.minf.stbl.stsz
 	stz2 := trak.mdia.minf.stbl.stz2
 	if stsz.sample_size > 0 {
 		sample_size = u64(stsz.sample_size)
 	} else {
 		if stsz.sample_count > 0 {
-			sample_size = u64(stsz.entries_sizes[sample_number])
+			sample_size = u64(stsz.entries_sizes[sample_number - 1])
 		} else {
 			if stz2.sample_count > 0 {
-				samples_per_entry := 0
+				samples_per_entry:u32be = 0
 				switch stz2.field_size {
 				case 4:
 					samples_per_entry = 8
@@ -301,57 +321,15 @@ get_sample_size :: proc(trak: Trak, sample_number: int) -> (sample_size: u64) {
 				}
 				index := sample_number / samples_per_entry
 				offset := ((sample_number % samples_per_entry) - 1) * samples_per_entry
-				sample_size = u64(stz2.entries_sizes[index] << u64(offset))
+				sample_size = u64(stz2.entries_sizes[index - 1] << u64(offset))
 			}
 		}
 	}
 	return sample_size
 }
 
-get_sample_offset :: proc(trak: Trak, time: f64) -> u64 {
-	sample_number := time_to_sample(trak, time)
-	chunk_number, first_sample := sample_to_chunk(trak, sample_number)
-	chunk_index := chunk_number > 0 ? chunk_number : sample_number
-	chunk_offset := get_chunk_offset(trak, chunk_index)
-	offset_size: u64 = 0
-	if chunk_number > 0 {
-		for i := 0; i < sample_number - first_sample - 1; i += 1 {
-			offset_size += get_sample_size(trak, first_sample + i)
-		}
-	}else {
-		offset_size += get_sample_size(trak, first_sample)
-	}
-	// log.infof(
-	// 	"sample_number %d of chunk %d with %d bytes offset in trak %d has an offset of %d bytes.",
-	// 	sample_number,
-	// 	chunk_index,
-	// 	chunk_offset,
-	// 	trak.tkhd.track_ID,
-	// 	chunk_offset + offset_size,
-	// )
-	fmt.println("sample_number", sample_number)
-	fmt.println("chunk_number", chunk_number)
-	fmt.println("chunk_offset", chunk_offset)
-	return chunk_offset + offset_size
-}
 
-get_composition_offset :: proc(trak: Trak, sample_number: int) -> u64 {
-	ctts := trak.mdia.minf.stbl.ctts
-	ctts_count := int(ctts.entry_count)
-	if ctts_count > 0 {
-		crawl_offset := 0
-		for i := 0; i < ctts_count; i += 1 {
-			offset := ctts.entries[i].sample_offset
-			count := int(ctts.entries[i].sample_count)
-			for j := crawl_offset; j < crawl_offset + count; j += 1 {
-				if j >= sample_number {
-					return u64(offset)
-				}
-			}
-		}
-	}
-	return 0
-}
+
 STYP_TYPE :: 0x73747970
 create_styp :: proc(segment: Segment) -> (styp: Ftyp){
 	segment.mp4.ftyp.box.type = STYP_TYPE
@@ -359,57 +337,92 @@ create_styp :: proc(segment: Segment) -> (styp: Ftyp){
 }
 
 
-create_sidxs :: proc(segment: Segment) -> []Sidx {
+get_trak_duration :: proc(trak: Trak) -> (duration: u32be) {
+	timescale := trak.mdia.mdhd.timescale
+	for stts in trak.mdia.minf.stbl.stts.entries {
+		duration += stts.sample_count * stts.sample_delta
+	}
+	return duration 
+}
+
+get_traks_shift :: proc(traks: []Trak) -> u32be {
+	return len(traks) == 2 ? math.abs(get_trak_duration(traks[1]) - get_trak_duration(traks[1])) : 0  
+}
+
+
+create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 	// * Mp4 info
 	mp4_duration := segment.mp4.moov.mvhd.duration // TODO: need version checking
 	mp4_timescale := segment.mp4.moov.mvhd.timescale
 	traks := segment.mp4.moov.traks
 	trak_count := len(traks)
 	sidxs: []Sidx = make([]Sidx, 2)
-
-
-
+	vide_trak: Trak
+	soun_trak: Trak
+	vide_trak_to_sidx: int
+	soun_trak_to_sidx: int
+	vide_duration:= get_trak_duration(vide_trak)
+	soun_duration := get_trak_duration(soun_trak)
+	shift := get_traks_shift([]Trak{vide_trak, soun_trak})
 	for i := 0; i < trak_count; i += 1 {
-		// * FLAGS
-		has_duration := false
-		has_size := false
-		dafault_sample_flags := 0
-		tfhd_flags := 0
-		trun_flags := 0
-
-		// * Fragment info
-		trak := traks[i]
-		trak_id := trak.tkhd.track_ID
-		trak_timescale := trak.mdia.mdhd.timescale
-		trak_type := to_string(&traks[i].mdia.hdlr.handler_type)
-		// * styp
-		// * sidx
+		trak := segment.mp4.moov.traks[i]
 		handler_type := trak.mdia.hdlr.handler_type
-
+		trak_type := to_string(&traks[i].mdia.hdlr.handler_type)
 		sidxs[i].fullbox.box.type = 0x73696478 // * string("sidxs[i]") to u32be
 		sidxs[i].fullbox.box.size = 52
-		//sidxs[i].fullbox.box.
 		sidxs[i].fullbox.version = 1
-		sidxs[i].reference_ID = trak_id
-		sidxs[i].timescale = trak_timescale
-		if trak_id == 1 {
-			sidxs[i].earliest_presentation_time_extends = to_string(&handler_type) == "vide" ? u64be(segment.video_presentation_time_offsets[0]) : u64be(segment.video_presentation_time_offsets[0])
-			sidxs[i].first_offset_extends = i == 0 ? u64be(sidxs[i].fullbox.box.size) : 0
+		sidxs[i].reference_ID = trak.tkhd.track_ID
+		sidxs[i].timescale = trak.mdia.mdhd.timescale
+		if trak_type == "vide" {vide_trak = trak; vide_trak_to_sidx = i}
+		if trak_type == "soun" {soun_trak = trak; soun_trak_to_sidx = i}
+		if sidxs[i].fullbox.version == 1 {
+			sidxs[i].first_offset_extends = u64be((trak_count * 52) - (i + 1) * 52)
 		} else {
-			sidxs[i].earliest_presentation_time = to_string(&handler_type) == "vide" ? segment.video_presentation_time_offsets[0] : segment.video_presentation_time_offsets[0]
-			sidxs[i].first_offset = i == 0 ? u32be(sidxs[i].fullbox.box.size) : 0
+			sidxs[i].first_offset = u32be((trak_count * 52) - (i + 1) * 52)
 		}
 		sidxs[i].reference_count = 1
 		sidxs[i].items = make([]SegmentIndexBoxItems, sidxs[i].reference_count)
-		sidxs[i].items[0] = {
-			    reference_type = 0,
-			    referenced_size = 1618842, // size moof + size mdate 
-			    //subsegment_duration = trak_type == "vide" ? u32be(segment.segment_duration) * trak_timescale: 0,
-			    subsegment_duration = u32be(segment.segment_duration * f64(trak_timescale)),
-			    starts_with_SAP = 1,
-			    SAP_type = 0, 
-			    SAP_delta_time = 0
-		}
+	}
+	sidxs[vide_trak_to_sidx].items[0] = {
+		    reference_type = 0,
+		    referenced_size = referenced_size, // size moof + size mdate 
+		    //subsegment_duration = trak_type == "vide" ? u32be(segment.segment_duration) * trak_timescale: 0,
+		    subsegment_duration = u32be(segment.segment_duration * f64(sidxs[vide_trak_to_sidx].timescale)),
+		    starts_with_SAP = 1,
+		    SAP_type = 0, 
+		    SAP_delta_time = 0
+	}
+	sidxs[soun_trak_to_sidx].items[0] = {
+		    reference_type = 0,
+		    referenced_size = referenced_size, // size moof + size mdate 
+		    //subsegment_duration = trak_type == "vide" ? u32be(segment.segment_duration) * trak_timescale: 0,
+		    subsegment_duration = u32be(segment.segment_duration * f64(sidxs[soun_trak_to_sidx].timescale)),
+		    starts_with_SAP = 1,
+		    SAP_type = 0, 
+		    SAP_delta_time = 0
+	}
+	// * EARLIEST_PRESENTATION_TIME
+	earliest_presentation_time := segment.video_presentation_time_offsets[0]
+	if sidxs[vide_trak_to_sidx].fullbox.version == 1 {
+		duration_cum := u64be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
+		sidxs[vide_trak_to_sidx].earliest_presentation_time_extends = duration_cum + u64be(segment.video_presentation_time_offsets[0])
+	} else {
+		duration_cum := u32be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
+		sidxs[vide_trak_to_sidx].earliest_presentation_time = duration_cum + segment.video_presentation_time_offsets[0]
+	}
+
+	if vide_duration > soun_duration {
+		earliest_presentation_time += shift
+	}else if vide_duration < soun_duration{
+		earliest_presentation_time -= shift
+	}
+
+	if sidxs[soun_trak_to_sidx].fullbox.version == 1 {
+		duration_cum := u64be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
+		sidxs[soun_trak_to_sidx].earliest_presentation_time_extends = u64be(earliest_presentation_time) + u64be(duration_cum)
+	} else {
+		duration_cum := u32be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
+		sidxs[soun_trak_to_sidx].earliest_presentation_time = earliest_presentation_time + duration_cum
 	}
 
 	return sidxs
@@ -521,7 +534,7 @@ create_tfhd :: proc(trak: Trak, segment: Segment, tf_flags: int) -> (tfhd: Tfhd)
 	}
 	if tf_flags & TFHD_DEFAULT_SAMPLE_DURATION_PRESENT == TFHD_DEFAULT_SAMPLE_DURATION_PRESENT {
 		
-		tfhd.default_sample_duration = trak_type == "vide" ? segment.video_decoding_times[0][1] : segment.sound_decoding_times[0][1]
+		tfhd.default_sample_duration = trak_type == "vide" ? segment.video_decoding_times[0] : segment.sound_decoding_times[0]
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DEFAULT_SAMPLE_SIZE_PRESENT == TFHD_DEFAULT_SAMPLE_SIZE_PRESENT {
@@ -581,37 +594,35 @@ create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun)
 	trun.fullbox.flags = (^[3]byte)(&flags)^
 	size: int = 12 + size_of(u32be)
 	if tr_flags & TRUN_DATA_OFFSET_PRESENT == TRUN_DATA_OFFSET_PRESENT {
-		fmt.println("TRUN_DATA_OFFSET_PRESENT")
+		//fmt.println("TRUN_DATA_OFFSET_PRESENT")
 		size += size_of(i32be)
 	}
 	if tr_flags & TRUN_FIRST_SAMPLE_FLAGS_PRESENT == TRUN_FIRST_SAMPLE_FLAGS_PRESENT {
-		fmt.println("TRUN_FIRST_SAMPLE_FLAGS_PRESENT")
+		//fmt.println("TRUN_FIRST_SAMPLE_FLAGS_PRESENT")
 		trun.first_sample_flags = to_string(&handler_type) == "vide" ? 0x2000000 : 0
 		size += size_of(u32be)
 	}
 
 	sample_count := to_string(&handler_type) == "vide" ?  segment.video_segment_sample_count : segment.sound_segment_sample_count
+	decoding_times := to_string(&handler_type) == "vide" ?  segment.video_decoding_times : segment.sound_decoding_times
 	trun.sample_count = u32be(sample_count)
 	trun.samples = make([]TrackRunBoxSample, trun.sample_count)
 	for i:=0;i<sample_count;i+=1 {
 		if tr_flags & TRUN_SAMPLE_DURATION_PRESENT == TRUN_SAMPLE_DURATION_PRESENT {
-			decoding_times := to_string(&handler_type) == "vide" ? segment.video_decoding_times : segment.sound_decoding_times
-			cumul := 0
-			for time_map in decoding_times {
-				cumul += int(time_map[0])
-				if i < cumul {
-					trun.samples[i].sample_duration = time_map[1]
-					break
-				}
-				
-			}
+			for time in decoding_times {
+					trun.samples[i].sample_duration = time
+			}	
 			size += size_of(u32be)
 		}
+		
 		if tr_flags & TRUN_SAMPLE_SIZE_PRESENT == TRUN_SAMPLE_SIZE_PRESENT {
+			//log.debugf("%v", len(segment.sound_sample_sizes))
 			trun.samples[i].sample_size = to_string(&handler_type) == "vide" ? segment.video_sample_sizes[i] : segment.sound_sample_sizes[i]
 			size += size_of(u32be)
 		}
 		if tr_flags & TRUN_SAMPLE_COMPOSITION_TIME_OFFSETS_PRESENT == TRUN_SAMPLE_COMPOSITION_TIME_OFFSETS_PRESENT {
+			//log.debugf("sample_count : %v", sample_count)
+			//log.debugf("len(segment.video_presentation_time_offsets) : %v", len(segment.video_presentation_time_offsets))
 			trun.samples[i].sample_composition_time_offset = to_string(&handler_type) == "vide" ? segment.video_presentation_time_offsets[i] : segment.sound_presentation_time_offsets[i]
 			size += size_of(u32be)
 		}
@@ -626,54 +637,47 @@ create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun)
 	return trun
 }
 
+get_sample_offset :: proc(trak: Trak, chunk_offset: u64, first_chunk_sample: u32be, sample_number: u32be) -> (sample_offset: u64, sample_size: u64) {
+	sample_offset = chunk_offset
+	if trak.mdia.minf.stbl.stsc.entry_count > 1 {
+		for sample in first_chunk_sample..=sample_number {
+			if(sample == sample_number){
+				sample_size = get_sample_size(trak, sample)
+			}else{
+				sample_offset += get_sample_size(trak, sample)
+			}
+		}
+	}else{
+		sample_size = get_sample_size(trak, sample_number)
+	}
+	return sample_offset, sample_size
+}
+
+
 MDAT_TYPE :: 0x6D646174
-create_mdat :: proc(segment: Segment) -> (mdat: Mdat) {
+create_mdat :: proc(segment: Segment, video_file_b: []byte) -> (mdat: Mdat) {
 	mdat.box.type = MDAT_TYPE
 	mdat.box.size = 8
-	
 	for i := 0; i < len(segment.mp4.moov.traks); i += 1 {
 		trak := segment.mp4.moov.traks[i]
-		stsc := trak.mdia.minf.stbl.stsc
-		handler_type := trak.mdia.hdlr.handler_type
-		min := to_string(&handler_type) == "vide" ? segment.video_sample_min : segment.sound_sample_min
-		max := to_string(&handler_type) == "vide" ? segment.video_sample_max : segment.sound_sample_max
-		sample_count := to_string(&handler_type) == "vide" ? segment.video_segment_sample_count : segment.sound_segment_sample_count
-		sample_offset_cum := 0
-		decoding_times := to_string(&handler_type) == "vide" ? segment.video_decoding_times : segment.sound_decoding_times
-		semple_sizes := to_string(&handler_type) == "vide" ? segment.video_sample_sizes : segment.sound_sample_sizes
-		default_size := to_string(&handler_type) == "vide" ? segment.video_default_size : segment.sound_default_size
-		presentation_offset := to_string(&handler_type) == "vide" ? segment.video_presentation_time_offsets : segment.sound_presentation_time_offsets
-
-		for j:=0;j<sample_count;j+=1 {
-			decoding_time: = 0
-			sample_count_cum := 0
-			for dt in decoding_times {
-				if sample_count_cum + int(dt[0]) > j {
-					decoding_time += int(dt[1]) * (j - sample_count_cum)
-					break
-				}else{
-					decoding_time += int(dt[1] * dt[0])
-				}
-				sample_count_cum += int(dt[0])
+		first_sample, first_sample_duration := get_segment_first_sample(trak, u32be(segment.segment_number), segment.segment_duration)
+		first_sample_next, first_sample_duration_next := get_segment_first_sample(trak, u32be(segment.segment_number + 1), segment.segment_duration)
+		for sample in first_sample..<first_sample_next {
+			chunk_number, first_chunk_sample := sample_to_chunk(trak, sample)
+			if trak.mdia.minf.stbl.stsc.entry_count <= 1 {
+				chunk_number = sample
 			}
-			decoding_time_scaled: f64 = j == 0 && segment.segment_number == 0 ? 0 : f64(decoding_time) / f64(trak.mdia.mdhd.timescale)
-			time := segment.segment_duration * f64(segment.segment_number) + decoding_time_scaled
-			fmt.println(time)
-			sample_offset := get_sample_offset(trak, time)
-			size := len(semple_sizes) > 0 ? int(semple_sizes[j]) : int(default_size)
-			//log.infof("%v - %v", j, sample_offset)
-			index1 := sample_offset > 0 ? sample_offset - u64(size) : 0
-			index2 := sample_offset
-		    data := segment.mp4.mdat.data[index1 : index2 + 1]
-		    mdat.data = slice.concatenate([][]byte{mdat.data,data})
-		    sample_offset_cum += int(sample_offset)
+			// log.debugf("sample, chunk_number, first_chunk_sample = %v, %v, %v", sample, chunk_number, first_chunk_sample)
+			chunk_offset := get_chunk_offset(trak, chunk_number)
+			log.debugf("sample, chunk_number, chunk_offset = %v, %v, %v", sample, chunk_number, chunk_offset)
+			sample_offset, sample_size := get_sample_offset(trak, chunk_offset, first_chunk_sample, sample)
+			data := video_file_b[sample_offset : sample_offset + sample_size]
+			mdat.data = slice.concatenate([][]byte{mdat.data,data})
 		}
 	}
 	mdat.box.size += u32be(len(mdat.data))
-	
 	return mdat
 }
-
 
 recreate_seg_1 :: proc(index: int, video: []byte, seg1: []byte) {
 	time: f32 = 3.753750 // 3,753750
