@@ -57,17 +57,26 @@ main :: proc() {
 
 	// fmt.println("trak_shift", trak_shift)
 
-
 	// for trak in mp4_box.moov.traks {
-	// 	duration: u32be = 0
+	// 	segment_samples_count := make([dynamic]u32be, 0, 16)
+	// 	duration: f64 = 0
 	// 	timescale := trak.mdia.mdhd.timescale
+	// 	sample_number: u32be = 0
+	// 	duration_sum: f64 = 0
+	// 	last_duration: f64 = 0
 	// 	for stts in trak.mdia.minf.stbl.stts.entries {
-	// 		duration += stts.sample_count * stts.sample_delta
+	// 		for i in 0 ..< stts.sample_count {
+	// 			if duration >= last_duration + segment_duration * f64(trak.mdia.mdhd.timescale) {
+	// 				append(&segment_samples_count, sample_number)
+	// 				last_duration = duration
+	// 			}
+	// 			sample_number += 1
+	// 			duration += f64(stts.sample_delta)
+	// 		}
 	// 	}
-	// 	samp, dur := mp4.get_segment_first_sample(trak, u32be(segment_number), segment_duration)
-	// 	chunk, fs := mp4.sample_to_chunk(trak, int(samp))
-	// 	// log.debugf("Trak duration:\t%v", f64(duration) / f64(timescale))
+	// 	log.debugf("segment_samples_count:\t%v", segment_samples_count)
 	// }
+
 	//mp4.create_mdat(segment)
 
 	// log.debugf("segment.segment_count : %v", segment.segment_count)
@@ -77,6 +86,7 @@ main :: proc() {
 	// log.debugf("segment.segment_count : %v", segment.segment_count)
 	//log.debugf("SEGMENT NUMBER %v", segment.video_presentation_time_offsets)
 
+	log.debugf("SEGMENT : %v", segment_number)
 	// * STYP
 	seg_box.styp = mp4.create_styp(segment)
 

@@ -120,18 +120,32 @@ serialize_sidx :: proc(sidx: Sidx) -> (data: []byte) {
 		subsegment_duration_b := (^[4]byte)(&subsegment_duration)^
 		data = slice.concatenate([][]byte{data[:], subsegment_duration_b[:]})
 
-		starts_with_SAP := sidx.items[i].starts_with_SAP
-		starts_with_SAP_u32 := u32be(starts_with_SAP)
-		//starts_with_SAP_u32 = starts_with_SAP_u32 & 0x00000001
-		SAP_type := sidx.items[i].SAP_type
-		SAP_type_u32be := u32be(SAP_type)
-		SAP_type_u32be = SAP_type_u32be << 1
-		//SAP_type_u32be = SAP_type_u32be & 0x000000FE
+		// SAP ---------
+
+		starts_with_SAP := u32be(sidx.items[i].starts_with_SAP) << 31
+		fmt.printf("temp_final_b : %b\n", starts_with_SAP)
+		SAP_type := u32be(sidx.items[i].SAP_type)
+		temp_b := starts_with_SAP | SAP_type
+		temp_u32be := u32be(temp_b)
 		SAP_delta_time := sidx.items[i].SAP_delta_time
-		SAP_delta_time = SAP_delta_time << 4
-		tmp = starts_with_SAP_u32 | SAP_type_u32be | SAP_delta_time
-		tmp_b = (^[4]byte)(&tmp)^
-		data = slice.concatenate([][]byte{data[:], tmp_b[:]})
+		temp_final := temp_u32be | SAP_delta_time
+
+
+		temp_final_b := (^[4]byte)(&temp_final)^
+		data = slice.concatenate([][]byte{data[:], temp_final_b[:]})
+		// starts_with_SAP := sidx.items[i].starts_with_SAP
+		// starts_with_SAP_u32 := u32be(starts_with_SAP)
+		// //starts_with_SAP_u32 = starts_with_SAP_u32 & 0x00000001
+		// SAP_type := sidx.items[i].SAP_type
+		// SAP_type_u32be := u32be(SAP_type)
+		// SAP_type_u32be = SAP_type_u32be << 1
+		// //SAP_type_u32be = SAP_type_u32be & 0x000000FE
+		// SAP_delta_time := sidx.items[i].SAP_delta_time
+		// SAP_delta_time = SAP_delta_time << 4
+		// //tmp = starts_with_SAP_u32 | SAP_type_u32be | SAP_delta_time
+		// tmp_b = (^[4]byte)(&tmp)^
+		// data = slice.concatenate([][]byte{data[:], tmp_b[:]})
+
 	}
 	return data
 }
