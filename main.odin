@@ -40,53 +40,21 @@ main :: proc() {
 	seg_box, seg_size := mp4.deserialize_mp4(seg, u64(size_seg))
 
 	// * Input
-	segment_duration: f64 = 3.753750 // 3,753750
+	segment_duration: f64 = 3.753750 // 3,753750 3.753750
 	segment_number := strconv.atoi(args[2])
 
 	segment := mp4.new_segment(&mp4_box, segment_number, segment_duration)
 
-	// fmt.println("video", segment.video_segment_sample_count)
-	// fmt.println("sound", segment.sound_segment_sample_count)
 
-	// trak_shift :=
-	// 	(f64(mp4_box.moov.traks[0].tkhd.duration) /
-	// 			f64(mp4_box.moov.traks[0].mdia.mdhd.timescale) -
-	// 		f64(mp4_box.moov.traks[1].tkhd.duration) /
-	// 			f64(mp4_box.moov.traks[1].mdia.mdhd.timescale)) *
-	// 	f64(mp4_box.moov.mvhd.timescale)
+	log.debugf("segment.segment_count : %v", segment.segment_count)
+	log.debugf("segment.segment_duration : %v", segment.segment_duration)
+	log.debugf("segment.segment_number : %v", segment.segment_number)
+	log.debugf("segment.video_decoding_times : %v", segment.video_decoding_times)
+	log.debugf("segment.sound_decoding_times : %v", segment.sound_decoding_times)
+	log.debugf("segment.segment_count : %v", segment.segment_count)
+	// log.debugf("SEGMENT NUMBER %v", segment.video_presentation_time_offsets)
 
-	// fmt.println("trak_shift", trak_shift)
-
-	// for trak in mp4_box.moov.traks {
-	// 	segment_samples_count := make([dynamic]u32be, 0, 16)
-	// 	duration: f64 = 0
-	// 	timescale := trak.mdia.mdhd.timescale
-	// 	sample_number: u32be = 0
-	// 	duration_sum: f64 = 0
-	// 	last_duration: f64 = 0
-	// 	for stts in trak.mdia.minf.stbl.stts.entries {
-	// 		for i in 0 ..< stts.sample_count {
-	// 			if duration >= last_duration + segment_duration * f64(trak.mdia.mdhd.timescale) {
-	// 				append(&segment_samples_count, sample_number)
-	// 				last_duration = duration
-	// 			}
-	// 			sample_number += 1
-	// 			duration += f64(stts.sample_delta)
-	// 		}
-	// 	}
-	// 	log.debugf("segment_samples_count:\t%v", segment_samples_count)
-	// }
-
-	//mp4.create_mdat(segment)
-
-	// log.debugf("segment.segment_count : %v", segment.segment_count)
-	// log.debugf("segment.segment_duration : %v", segment.segment_duration)
-	// log.debugf("segment.segment_number : %v", segment.segment_number)
-	// log.debugf("segment.video_decoding_times : %v", segment.video_decoding_times)
-	// log.debugf("segment.segment_count : %v", segment.segment_count)
-	//log.debugf("SEGMENT NUMBER %v", segment.video_presentation_time_offsets)
-
-	log.debugf("SEGMENT : %v", segment_number)
+	// log.debugf("SEGMENT : %v", segment_number)
 	// * STYP
 	seg_box.styp = mp4.create_styp(segment)
 
@@ -101,6 +69,7 @@ main :: proc() {
 	}
 	new_seg := mp4.serialize_mp4(seg_box)
 	handle, err := os.open(fmt.tprintf("test5/seg-%d.m4s", strconv.atoi(args[2])), os.O_CREATE)
+	fmt.println("%v\n", len(vid))
 	defer os.close(handle)
 	os.write(handle, new_seg)
 }

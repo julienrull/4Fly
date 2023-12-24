@@ -18,14 +18,12 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 	sub_box, sub_box_size := deserialize_box(data[acc:])
 	name := to_string(&sub_box.type)
 	for acc < size {
-		// fmt.println(name)
-		// fmt.println(size)
-		// fmt.println(acc)
 		switch name {
 		case "ftyp":
 			atom, atom_size := deserialize_ftype(data[acc:])
 			mp4.ftyp = atom
 			acc += atom_size
+			fmt.println(atom_size)
 		case "moov":
 			atom, atom_size := deserialize_moov(data[acc:])
 			mp4.moov = atom
@@ -38,9 +36,6 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 			atom, atom_size := deserialize_sidx(data[acc:])
 			append(&mp4.sidxs, atom)
 			acc += atom_size
-			fmt.println("name", name)
-			fmt.println("atom.size", atom.fullbox.box.size)
-			fmt.println("atom_size", atom_size)
 		case "moof":
 			atom, atom_size := deserialize_moof(data[acc:])
 			mp4.moof = atom
@@ -53,6 +48,8 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 			atom, atom_size := deserialize_mdat(data[acc:])
 			mp4.mdat = atom
 			acc += atom_size
+		// fmt.println(atom_size)
+		// fmt.println(atom.box)
 		case "free":
 			// TODO: free box implementation 
 			//atom, atom_size := deserialize_box(data[acc:])
@@ -64,6 +61,7 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 		if acc < size {
 			sub_box, sub_box_size = deserialize_box(data[acc:])
 			name = to_string(&sub_box.type)
+			fmt.println(name)
 		}
 	}
 	return mp4, acc
