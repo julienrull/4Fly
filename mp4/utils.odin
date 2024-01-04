@@ -53,11 +53,6 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 	starting_time := f64(segment_number) * segment_duration
 	ending_time := starting_time + segment_duration
 
-
-
-	
-	
-	
 	for trak in mp4.moov.traks {
 		stts := trak.mdia.minf.stbl.stts
 		handler_type := trak.mdia.hdlr.handler_type
@@ -69,19 +64,22 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 
 		sample_number, _ := get_segment_first_sample(trak, trak.mdia.mdhd.timescale, u32be(segment.segment_number), f64(segment.segment_duration))
 		sample_number_next, _ := get_segment_first_sample(trak, trak.mdia.mdhd.timescale, u32be(segment.segment_number + 1), f64(segment.segment_duration))
-		fmt.println("sample_number_prev", sample_number_next)
-		fmt.println("sample_number", sample_number)
+		//fmt.println("sample_number_prev", sample_number_next)
+		//fmt.println("sample_number", sample_number)
 
 		segment_sample_count := int(sample_number_next - sample_number)
 		if trak_type == "vide"{
 			segment.video_timescale = int(trak.mdia.mdhd.timescale) // 15360
-			//segment.video_timescale = 300
+			//segment.video_timescale = 15360 
+			//segment.video_timescale =  19200
+			//segment.video_timescale = 1820 
 			segment.video_segment_sample_count = segment_sample_count
 			segment.video_sample_sizes = make([]u32be, segment_sample_count)
 			segment.video_decoding_times = make([]u32be, segment_sample_count)
 		}else{
 			segment.sound_timescale = int(trak.mdia.mdhd.timescale)
-			segment.sound_segment_sample_count = segment_sample_count
+			//segment.sound_segment_sample_count = segment_sample_count
+			segment.sound_segment_sample_count = segment_sample_count - 1
 			segment.sound_sample_sizes = make([]u32be, segment_sample_count)
 			segment.sound_decoding_times = make([]u32be, segment_sample_count)
 		}
@@ -89,6 +87,7 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 		for sample in int(sample_number)..<int(sample_number_next) {
 			if trak_type == "vide" {
 				segment.video_decoding_times[i] = get_sample_duration(trak, u32be(sample))
+				//segment.video_decoding_times[i] = 600
 				if(trak.mdia.minf.stbl.stsz.sample_count > 0) {
 					segment.video_sample_sizes[i] = u32be(get_sample_size(trak, u32be(sample)))
 				}
@@ -701,7 +700,6 @@ create_mdat :: proc(segment: Segment, video_file_b: []byte) -> (mdat: Mdat) {
 		trak := segment.mp4.moov.traks[i]
 		handler_type := trak.mdia.hdlr.handler_type
 		timescale := to_string(&handler_type) == "vide" ? u32be(segment.video_timescale) : u32be(segment.sound_timescale)
-		log.debugf("timescale : %v", timescale)
 		first_sample, first_sample_duration := get_segment_first_sample(trak, timescale, u32be(segment.segment_number), segment.segment_duration)
 		first_sample_next, first_sample_duration_next := get_segment_first_sample(trak, timescale,u32be(segment.segment_number + 1), segment.segment_duration)
 		for sample in first_sample..<first_sample_next {
@@ -713,10 +711,13 @@ create_mdat :: proc(segment: Segment, video_file_b: []byte) -> (mdat: Mdat) {
 			chunk_offset := get_chunk_offset(trak, chunk_number)
 			//log.debugf("sample, chunk_number, chunk_offset = %v, %v, %v", sample, chunk_number, chunk_offset)
 			sample_offset, sample_size := get_sample_offset(trak, chunk_offset, first_chunk_sample, sample)
+			if to_string(&handler_type) == "vide"{
+				fmt.println(sample_offset, sample_offset + sample_size)
+			} 
 			data := video_file_b[sample_offset : sample_offset + sample_size]
 			mdat.data = slice.concatenate([][]byte{mdat.data,data})
+			mdat.box.size += u32be(sample_size)
 		}
 	}
-	mdat.box.size += u32be(len(mdat.data))
 	return mdat
 }

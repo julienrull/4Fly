@@ -24,7 +24,6 @@ go.work
 *.pdb
 *.rdbg
 *.json
-*.html
 *.m4s
 *.m3u8
 *.txt
