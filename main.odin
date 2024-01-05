@@ -16,15 +16,9 @@ main :: proc() {
 	folder := args[0]
 	segment_number := strconv.atoi(args[1])
 	segment_duration := strconv.atof(args[2])
-	size_video := os.file_size_from_path(
-		fmt.tprintf("./%s/test.mp4", folder),
-	)
-	size_seg := os.file_size_from_path(
-		fmt.tprintf("./%s/save/seg-%d.m4s", folder, segment_number),
-	)
-	f_vid, f_vid_err := os.open(
-		fmt.tprintf("./%s/test.mp4", folder),
-	)
+	size_video := os.file_size_from_path(fmt.tprintf("./%s/test.mp4", folder))
+	size_seg := os.file_size_from_path(fmt.tprintf("./%s/save/seg-%d.m4s", folder, segment_number))
+	f_vid, f_vid_err := os.open(fmt.tprintf("./%s/test.mp4", folder))
 	if f_vid_err != 0 {
 		return
 	}
@@ -53,13 +47,15 @@ main :: proc() {
 	segment := mp4.new_segment(&mp4_box, segment_number, segment_duration)
 
 
-	log.debugf("segment.segment_count : %v", segment.segment_count)
-	log.debugf("segment.segment_duration : %v", segment.segment_duration)
-	log.debugf("segment.segment_number : %v", segment.segment_number)
+	//log.debugf("segment.segment_count : %v", segment.segment_count)
+	//log.debugf("segment.segment_duration : %v", segment.segment_duration)
+	//log.debugf("segment.segment_number : %v", segment.segment_number)
+	//log.debugf("segment.segment_count : %v", segment.segment_count)
+	log.debugf("segment.video_segment_sample_count: %v", segment.video_segment_sample_count)
 	log.debugf("segment.video_decoding_times : %v", segment.video_decoding_times)
-	log.debugf("segment.sound_decoding_times : %v", segment.sound_decoding_times)
-	log.debugf("segment.segment_count : %v", segment.segment_count)
-	log.debugf("SEGMENT NUMBER %v", segment.video_presentation_time_offsets)
+	log.debugf("segment.video_presentation_time_offsets: %v", segment.video_presentation_time_offsets)
+	log.debugf("segment.video_sample_sizes: %v", segment.video_sample_sizes)
+	log.debugf("segment.video_default_size: %v", segment.video_default_size)
 
 	// log.debugf("SEGMENT : %v", segment_number)
 	// * STYP
@@ -80,10 +76,7 @@ main :: proc() {
 		append(&seg_box.sidxs, sidx)
 	}
 	new_seg := mp4.serialize_mp4(seg_box)
-	handle, err := os.open(
-		fmt.tprintf("./%s/seg-%d.m4s", folder, segment_number),
-		os.O_CREATE,
-	)
+	handle, err := os.open(fmt.tprintf("./%s/seg-%d.m4s", folder, segment_number), os.O_CREATE)
 	fmt.println("%v\n", len(vid))
 	defer os.close(handle)
 	os.write(handle, new_seg)
