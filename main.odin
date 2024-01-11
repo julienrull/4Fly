@@ -11,11 +11,13 @@ import "core:strings"
 import "core:testing"
 import "mp4"
 main :: proc() {
+	fmt.println("BEGIN PPROG")
 	context.logger = log.create_console_logger()
 	args := os.args[1:]
 	folder := args[0]
 	segment_number := strconv.atoi(args[1])
 	segment_duration := strconv.atof(args[2])
+	fmt.println("segment_number: ", segment_number)
 	size_video := os.file_size_from_path(fmt.tprintf("./%s/test.mp4", folder))
 	size_seg := os.file_size_from_path(fmt.tprintf("./%s/save/seg-%d.m4s", folder, segment_number))
 	f_vid, f_vid_err := os.open(fmt.tprintf("./%s/test.mp4", folder))
@@ -56,7 +58,6 @@ main :: proc() {
 	log.debugf("segment.video_presentation_time_offsets: %v", segment.video_presentation_time_offsets)
 	log.debugf("segment.video_sample_sizes: %v", segment.video_sample_sizes)
 	log.debugf("segment.video_default_size: %v", segment.video_default_size)
-
 	// log.debugf("SEGMENT : %v", segment_number)
 	// * STYP
 	seg_box := mp4.Mp4{}

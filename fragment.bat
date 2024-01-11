@@ -9,3 +9,4 @@ FOR /l %%x IN (0, 1, %count%) DO (
 	call mp4dump.exe --verbosity 3 .\%folder%\seg-%%x.m4s > .\%folder%\seg-%%x.txt
 	call mp4dump.exe --verbosity 3 .\%folder%\save\seg-%%x.m4s > .\%folder%\save\seg-%%x.txt
 ) 
+echo batch: FIN FRAGMENT

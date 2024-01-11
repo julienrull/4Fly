@@ -68,16 +68,14 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 		segment_sample_count := int(sample_number_next - sample_number)
 		if trak_type == "vide"{
 			segment.video_timescale = int(trak.mdia.mdhd.timescale) // 15360
-			//segment.video_timescale = 15360 
-			//segment.video_timescale =  19200
-			//segment.video_timescale = 1820 
+			//segment.video_timescale = 19200
 			segment.video_segment_sample_count = segment_sample_count
 			segment.video_sample_sizes = make([]u32be, segment_sample_count)
 			segment.video_decoding_times = make([]u32be, segment_sample_count)
 		}else{
+			//segment_sample_count += 1
 			segment.sound_timescale = int(trak.mdia.mdhd.timescale)
-			//segment.sound_segment_sample_count = segment_sample_count
-			segment.sound_segment_sample_count = segment_sample_count - 1
+			segment.sound_segment_sample_count = segment_sample_count
 			segment.sound_sample_sizes = make([]u32be, segment_sample_count)
 			segment.sound_decoding_times = make([]u32be, segment_sample_count)
 		}
@@ -85,7 +83,7 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 		for sample in int(sample_number)..<int(sample_number_next) {
 			if trak_type == "vide" {
 				segment.video_decoding_times[i] = get_sample_duration(trak, u32be(sample))
-				//segment.video_decoding_times[i] = 600
+				//segment.video_decoding_times[i] = 640
 				if(trak.mdia.minf.stbl.stsz.sample_count > 0) {
 					segment.video_sample_sizes[i] = u32be(get_sample_size(trak, u32be(sample)))
 				}
@@ -165,9 +163,11 @@ get_segment_first_sample :: proc(trak: Trak, timescale: u32be, segment_number: u
 			target_stts_begin := sample_duration_cum
 			target_stts_end := sample_duration_cum + stts_duration
 			remain_time_to_begin := segment_begin_time - target_stts_begin
-			sample_number_begin := sample_duration_cum + remain_time_to_begin / stts.sample_delta
+			reamain_sample_time := (remain_time_to_begin / stts.sample_delta)
+			sample_number_begin := sample_duration_cum + reamain_sample_time
 			sample_number = sample_number_begin + 1
 			sample_duration = stts.sample_delta
+			fmt.println("sample_number : ", sample_number)
 			return sample_number, sample_duration
 		}
 		sample_duration_cum += stts_duration
@@ -424,27 +424,27 @@ create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 	shift := get_traks_shift([]Trak{vide_trak, soun_trak}, u32be(segment.video_timescale), u32be(segment.sound_timescale), mp4_timescale)
 	earliest_presentation_time := segment.video_presentation_time_offsets[0]
 
-	//if sidxs[vide_trak_to_sidx].fullbox.version == 1 {
+	if sidxs[vide_trak_to_sidx].fullbox.version == 1 {
 		
-		//duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
-		//sidxs[vide_trak_to_sidx].earliest_presentation_time_extends = duration_cum + u64be(segment.video_presentation_time_offsets[0])
-	//} else {
-		//duration_cum := segment.segment_number == 0 ? 0 : u32be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
-		//sidxs[vide_trak_to_sidx].earliest_presentation_time = duration_cum + segment.video_presentation_time_offsets[0]
-	//}
-	// if vide_duration > soun_duration {
-	// 	earliest_presentation_time += shift
-	// }else if vide_duration < soun_duration{
-	// 	earliest_presentation_time -= shift
-	// }
+		duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
+		sidxs[vide_trak_to_sidx].earliest_presentation_time_extends = duration_cum + u64be(segment.video_presentation_time_offsets[0])
+	} else {
+	duration_cum := segment.segment_number == 0 ? 0 : u32be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
+	sidxs[vide_trak_to_sidx].earliest_presentation_time = duration_cum + segment.video_presentation_time_offsets[0]
+	}
+	 if vide_duration > soun_duration {
+	 	earliest_presentation_time += shift
+	 }else if vide_duration < soun_duration{
+	 	earliest_presentation_time -= shift
+	 }
 
-	// if sidxs[soun_trak_to_sidx].fullbox.version == 1 {
-	// 	duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
-	// 		sidxs[soun_trak_to_sidx].earliest_presentation_time_extends = u64be(earliest_presentation_time) + u64be(duration_cum)
-	// } else {
-	// 	duration_cum := segment.segment_number == 0 ? 0 : u32be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
-	// 	sidxs[soun_trak_to_sidx].earliest_presentation_time = earliest_presentation_time + duration_cum
-	// }
+	 if sidxs[soun_trak_to_sidx].fullbox.version == 1 {
+	 	duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
+	 		sidxs[soun_trak_to_sidx].earliest_presentation_time_extends = u64be(earliest_presentation_time) + u64be(duration_cum)
+	 } else {
+	 	duration_cum := segment.segment_number == 0 ? 0 : u32be(segment.segment_duration * f64(soun_trak.mdia.mdhd.timescale)) * u32be(segment.segment_number) + segment.video_presentation_time_offsets[0]
+	 	sidxs[soun_trak_to_sidx].earliest_presentation_time = earliest_presentation_time + duration_cum
+	 }
 	// * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
 	sidxs[vide_trak_to_sidx].earliest_presentation_time_extends = u64be(duration_cum)
@@ -507,10 +507,12 @@ create_traf :: proc(trak: Trak, segment: Segment) -> (traf: Traf) {
 	handler_type := trak.mdia.hdlr.handler_type
 	trak_type := to_string(&handler_type)
 	traf.box.type = TRAF_TYPE
-	tfhd_flags := TFHD_DEFAULT_SAMPLE_DURATION_PRESENT | TFHD_DEFAULT_SAMPLE_SIZE_PRESENT | TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT | TFHD_DEFAULT_BASE_IS_MOOF
+	//tfhd_flags := TFHD_DEFAULT_SAMPLE_DURATION_PRESENT | TFHD_DEFAULT_SAMPLE_SIZE_PRESENT | TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT | TFHD_DEFAULT_BASE_IS_MOOF
+	tfhd_flags := TFHD_DEFAULT_SAMPLE_DURATION_PRESENT | TFHD_DEFAULT_SAMPLE_SIZE_PRESENT | TFHD_DEFAULT_BASE_IS_MOOF
 	traf.tfhd = create_tfhd(trak, segment, tfhd_flags)
 	traf.tfdt = create_tfdt(trak, segment)
-	trun_flags := TRUN_DATA_OFFSET_PRESENT | TRUN_SAMPLE_FLAGS_PRESENT
+	//trun_flags := TRUN_DATA_OFFSET_PRESENT | TRUN_SAMPLE_FLAGS_PRESENT
+	trun_flags := TRUN_DATA_OFFSET_PRESENT | TRUN_SAMPLE_DURATION_PRESENT
 	if trak_type == "vide" {
 		//trun_flags |= TRUN_FIRST_SAMPLE_FLAGS_PRESENT
 	}

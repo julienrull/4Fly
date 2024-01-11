@@ -2,6 +2,7 @@
 REM set_env folder time
 set folder=%1
 set time=%2
+set count=%3
 
 REM Go to working dir
 PUSHD .\%folder%
@@ -14,4 +15,4 @@ MOVE *.m4s save
 REM Clear path
 POPD
 REM Create new segment with custom encoder
-call fragment.bat %folder% 15 %time% 
+call fragment.bat %folder% %count% %time% 
