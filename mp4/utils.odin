@@ -721,3 +721,91 @@ create_mdat :: proc(segment: Segment, video_file_b: []byte) -> (mdat: Mdat) {
 	mdat.box.size += u32be(len(mdat.data))
 	return mdat
 }
+
+MVEX_TYPE :: 0x6D766578
+TREX_TYPE :: 0x74726578
+create_init :: proc(mp4: Mp4) ->(init: Mp4){
+	init = mp4
+	// TODO: reset stbl children
+	for i:=0;i<len(init.moov.traks);i+=1{
+
+	   total_size := 0
+	   size := 0
+
+	   init.moov.traks[i].mdia.minf.stbl.stts.entry_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.stts.entries) * size_of(TimeToSampleBoxEntrie)
+	   init.moov.traks[i].mdia.minf.stbl.stts.fullbox.box.size -= u32be(size)
+	   init.moov.traks[i].mdia.minf.stbl.stts.entries = {}
+	   total_size += size
+
+	   init.moov.traks[i].mdia.minf.stbl.ctts.entry_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.ctts.entries) * size_of(CompositionOffsetBoxEntries)
+	   init.moov.traks[i].mdia.minf.stbl.ctts.fullbox.box.size -= u32be(size)
+	   init.moov.traks[i].mdia.minf.stbl.ctts.entries = {}
+	   total_size += size
+
+
+	   init.moov.traks[i].mdia.minf.stbl.stss.entry_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.stss.samples_numbers) * size_of(u32be)
+	   init.moov.traks[i].mdia.minf.stbl.stss.fullbox.box.size -= u32be(size)
+           init.moov.traks[i].mdia.minf.stbl.stss.samples_numbers = {}
+	   total_size += size
+
+	   init.moov.traks[i].mdia.minf.stbl.stsz.sample_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.stsz.entries_sizes) * size_of(u32be)
+	   init.moov.traks[i].mdia.minf.stbl.stsz.fullbox.box.size -= u32be(size)
+	   init.moov.traks[i].mdia.minf.stbl.stsz.entries_sizes = {}
+	   total_size += size
+
+	   init.moov.traks[i].mdia.minf.stbl.stsc.entry_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.stsc.entries) * size_of(SampleToChunkBoxEntries)
+	   init.moov.traks[i].mdia.minf.stbl.stsc.fullbox.box.size -= u32be(size)
+	   init.moov.traks[i].mdia.minf.stbl.stsc.entries = {}
+	   total_size += size
+
+	   init.moov.traks[i].mdia.minf.stbl.stco.entry_count = 0
+	   size = len(init.moov.traks[i].mdia.minf.stbl.stco.chunks_offsets) * size_of(u32be)
+	   init.moov.traks[i].mdia.minf.stbl.stco.fullbox.box.size -= u32be(size)
+	   init.moov.traks[i].mdia.minf.stbl.stco.chunks_offsets = {}
+	   total_size += size
+
+	   //stbl.stsh.entry_count = 0
+	   //stbl.stsd.entry_count = 0
+	   //stbl.co64.entry_count = 0
+	   //stbl.stz2.sample_count = 0
+	   //stbl.stdp.priorities = {}
+	   //stbl.padb.sample_count = 0
+	   //stbl.sbgp.entry_count = 0
+	   //stbl.sgpd.entry_count = 0
+
+	  init.moov.traks[i].mdia.minf.stbl.box.size -= u32be(total_size)
+	  init.moov.traks[i].mdia.minf.box.size -= u32be(total_size)
+	  init.moov.traks[i].mdia.box.size -= u32be(total_size)
+	  init.moov.traks[i].box.size -= u32be(total_size)
+	  init.moov.box.size -= u32be(total_size)
+	  init.moov.traks[i].tkhd.duration = 0
+	  init.moov.traks[i].edts.elst.entries[0].segment_duration = 0
+	  init.moov.traks[i].mdia.mdhd.duration = 0
+	}
+	init.moov.mvhd.duration = 0
+	// add mvex box to moov
+	init.moov.mvex.box.type = MVEX_TYPE
+	init.moov.mvex.box.size = 72
+	trexV := Trex{}
+	trexV.fullbox.box.type = TREX_TYPE
+	trexV.fullbox.box.size = 32
+	trexV.track_ID = 1
+	trexV.default_sample_description_index = 1
+	trexA := Trex{}
+	trexA.fullbox.box.type = TREX_TYPE
+	trexA.fullbox.box.size = 32
+	trexA.track_ID = 2
+	trexA.default_sample_description_index = 1
+	append(&init.moov.mvex.trexs, trexV)
+	append(&init.moov.mvex.trexs, trexA)
+	init.moov.box.size += 72
+	// remove mdat
+	init.mdat.data = {}
+	init.mdat.box.type = 0
+	return init
+}

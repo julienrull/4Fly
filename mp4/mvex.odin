@@ -8,11 +8,12 @@ import "core:fmt"
 Mvex :: struct {
     box:    Box,
     mehd:   Mehd,
-    trex:   Trex
+    trexs:   [dynamic]Trex
 }
 
 
 deserialize_mvex :: proc(data: []byte) -> (mvex: Mvex, acc: u64) {
+    mvex.trexs = make([dynamic]Trex, 0, 16)
     box, box_size := deserialize_box(data)
     mvex.box = box
     acc += box_size
@@ -34,7 +35,7 @@ deserialize_mvex :: proc(data: []byte) -> (mvex: Mvex, acc: u64) {
                 acc += atom_size
             case "trex":
                 atom, atom_size := deserialize_trex(data[acc:])
-                mvex.trex = atom
+                append(&mvex.trexs, atom)
                 acc += atom_size
             case:
                 panic("mvex sub box not implemented")
@@ -55,10 +56,11 @@ serialize_mvex :: proc(mvex: Mvex) -> (data: []byte){
         bin := serialize_mehd(mvex.mehd)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     } 
-    name = mvex.trex.fullbox.box.type
-    if to_string(&name) == "trex" {
-        bin := serialize_trex(mvex.trex)
-        data = slice.concatenate([][]byte{data[:], bin[:]})
+    if len(mvex.trexs) > 0 {
+        for i:=0; i<len(mvex.trexs); i+=1 {
+            bin := serialize_trex(mvex.trexs[i])
+            data = slice.concatenate([][]byte{data[:], bin[:]})
+        }
     }
     return data
 }

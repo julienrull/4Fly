@@ -9,8 +9,8 @@ Moov :: struct { // moov
     mvhd: Mvhd,
     iods: Iods,
     traks:          [dynamic]Trak,
+    mvex: Mvex,
     udta: Udta,
-    mvex: Mvex
 }
 
 deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
@@ -42,13 +42,13 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_trak(data[acc:])
                 append(&moov.traks, atom)
                 acc += atom_size
-                case "udta":
-                atom, atom_size := deserialize_udta(data[acc:])
-                moov.udta = atom
-                acc += atom_size
             case "mvex":
                 atom, atom_size := deserialize_mvex(data[acc:])
                 moov.mvex = atom
+                acc += atom_size
+	    case "udta":
+                atom, atom_size := deserialize_udta(data[acc:])
+                moov.udta = atom
                 acc += atom_size
             case:
                 panic(fmt.tprintf("moov sub box '%v' not implemented", name))
@@ -82,14 +82,14 @@ serialize_moov :: proc(moov: Moov) -> (data: []byte) {
             data = slice.concatenate([][]byte{data[:], bin[:]})
         }
     }
-    name = moov.udta.box.type
-    if to_string(&name) == "udta" {
-        bin := serialize_udta(moov.udta)
-        data = slice.concatenate([][]byte{data[:], bin[:]})
-    }
     name = moov.mvex.box.type
     if to_string(&name) == "mvex" {
         bin := serialize_mvex(moov.mvex)
+        data = slice.concatenate([][]byte{data[:], bin[:]})
+    }
+    name = moov.udta.box.type
+    if to_string(&name) == "udta" {
+        bin := serialize_udta(moov.udta)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     return data
