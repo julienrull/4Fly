@@ -46,7 +46,7 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
 	segment.segment_count = int(segment_count_f)
 	if segment_count_f > f64(segment.segment_count){
 		segment.segment_count += 1
-	} 
+	}
 
 	starting_time := f64(segment_number) * segment_duration
 	ending_time := starting_time + segment_duration
@@ -124,7 +124,7 @@ get_sample_duration :: proc(trak: Trak, sample_number: u32be) -> (sample_duratio
 }
 
 get_sample_presentation_offset :: proc(trak: Trak, sample_number: u32be) -> (presentation_offset: u32be){
-	sample_sum: u32be = 1 
+	sample_sum: u32be = 1
 	if(trak.mdia.minf.stbl.ctts.entry_count > 0){
 		for ctts in trak.mdia.minf.stbl.ctts.entries {
 			if sample_sum + ctts.sample_count >  sample_number {
@@ -184,7 +184,7 @@ get_segment_presentation_times :: proc(trak: Trak, timescale: u32be, segment_num
 	first_sample, first_sample_duation  := get_segment_first_sample(trak, timescale, segment_number,  segment_duration)
 	ctts_count := int(trak.mdia.minf.stbl.ctts.entry_count)
 	crawl_offset := 0
-	cts = make([dynamic]u32be, 0, 16) 
+	cts = make([dynamic]u32be, 0, 16)
 	for i := 0; i < ctts_count; i += 1 {
 		ctts := trak.mdia.minf.stbl.ctts.entries[i]
 		offset := ctts.sample_offset
@@ -216,7 +216,7 @@ sample_to_chunk :: proc(trak: Trak, sample_number: u32be) -> (chunk_number: u32b
 	samples_sum: u32be = 1
 	//chunk_sum := 0
 
-	if(int(stsc.entry_count) > 1) {		
+	if(int(stsc.entry_count) > 1) {
 		for i := 0; i < int(stsc.entry_count); i += 1 {
 			// * Variables
 			entry := stsc.entries[i]
@@ -347,19 +347,19 @@ get_trak_duration :: proc(trak: Trak, timescale: u32be) -> (duration: f64) {
 	for stts in trak.mdia.minf.stbl.stts.entries {
 		duration += f64(stts.sample_count) * f64(stts.sample_delta) / f64(timescale)
 	}
-	return duration 
+	return duration
 }
 
 get_traks_shift :: proc(traks: []Trak, trak_timescale_1: u32be, trak_timescale_2: u32be, moov_timescale: u32be) -> u32be {
 	sub: f64 = math.abs(get_trak_duration(traks[0], trak_timescale_1) - get_trak_duration(traks[1], trak_timescale_2))
-	return len(traks) == 2 ? u32be(sub* f64(moov_timescale))  : 0  
+	return len(traks) == 2 ? u32be(sub* f64(moov_timescale))  : 0
 }
 
 
 create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 	// * Mp4 info
 	mp4_duration := segment.mp4.moov.mvhd.duration // TODO: need version checking
-	mp4_timescale := segment.mp4.moov.mvhd.timescale 
+	mp4_timescale := segment.mp4.moov.mvhd.timescale
 	traks := segment.mp4.moov.traks
 	trak_count := len(traks)
 	sidxs: []Sidx = make([]Sidx, 2)
@@ -375,7 +375,7 @@ create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 		sidxs[i].fullbox.box.size = 52
 		sidxs[i].fullbox.version = 1
 		sidxs[i].reference_ID = trak.tkhd.track_ID
-		sidxs[i].timescale = to_string(&handler_type) == "vide" ?  u32be(segment.video_timescale)  : u32be(segment.sound_timescale) // 15360 u32be(segment.video_timescale) 
+		sidxs[i].timescale = to_string(&handler_type) == "vide" ?  u32be(segment.video_timescale)  : u32be(segment.sound_timescale) // 15360 u32be(segment.video_timescale)
 		if trak_type == "vide" {vide_trak = trak; vide_trak_to_sidx = i}
 		if trak_type == "soun" {soun_trak = trak; soun_trak_to_sidx = i}
 		if sidxs[i].fullbox.version == 1 {
@@ -397,25 +397,25 @@ create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 	// // samp, dur := mp4.get_segment_first_sample(trak, u32be(segment_number), segment_duration)
 	// chunk, fs := mp4.sample_to_chunk(trak, int(samp))
 
-	
+
 	sidxs[vide_trak_to_sidx].items[0] = {
 		    reference_type = 0,
-		    referenced_size = referenced_size, // size moof + size mdate 
-		    
+		    referenced_size = referenced_size, // size moof + size mdate
+
 		    // subsegment_duration = u32be(segment.segment_duration * f64(sidxs[vide_trak_to_sidx].timescale)),
 		    subsegment_duration = u32be(video_duration),
 
 		    starts_with_SAP = 1,
-		    SAP_type = 0, 
+		    SAP_type = 0,
 		    SAP_delta_time = 0
 	}
 	sidxs[soun_trak_to_sidx].items[0] = {
 		    reference_type = 0,
-		    referenced_size = referenced_size, // size moof + size mdate 
+		    referenced_size = referenced_size, // size moof + size mdate
 		    // subsegment_duration = u32be(segment.segment_duration * f64(sidxs[soun_trak_to_sidx].timescale)),
 		    subsegment_duration = u32be(sound_duration),
 		    starts_with_SAP = 1,
-		    SAP_type = 0, 
+		    SAP_type = 0,
 		    SAP_delta_time = 0
 	}
 	// * EARLIEST_PRESENTATION_TIME
@@ -425,7 +425,7 @@ create_sidxs :: proc(segment: Segment, referenced_size: u32be) -> []Sidx {
 	earliest_presentation_time := segment.video_presentation_time_offsets[0]
 
 	if sidxs[vide_trak_to_sidx].fullbox.version == 1 {
-		
+
 		duration_cum := segment.segment_number == 0 ? 0 : u64be(segment.segment_duration * f64(vide_trak.mdia.mdhd.timescale)) * u64be(segment.segment_number) + u64be(segment.video_presentation_time_offsets[0])
 		sidxs[vide_trak_to_sidx].earliest_presentation_time_extends = duration_cum + u64be(segment.video_presentation_time_offsets[0])
 	} else {
@@ -475,7 +475,7 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 	for i := 0; i < len(segment.mp4.moov.traks); i += 1 {
 		trak := segment.mp4.moov.traks[i]
 		handler_type := trak.mdia.hdlr.handler_type
-		
+
 		if i == 0 {
 			moof.trafs[i].trun.data_offset = i32be(moof.box.size) + 8
 		}else {
@@ -489,12 +489,12 @@ create_moof :: proc(segment: Segment) -> (moof: Moof){
 			if len(sample_sizes) > 0 {
 				for s in sample_sizes {
 					size_cum += s
-				} 
+				}
 				moof.trafs[i].trun.data_offset += i32be(size_cum)
 			}else {
 				moof.trafs[i].trun.data_offset = i32be(sample_size * u32be(sample_count))
 			}
-			
+
 		}
 	}
 	return moof
@@ -519,7 +519,7 @@ create_traf :: proc(trak: Trak, segment: Segment) -> (traf: Traf) {
 	if trak.mdia.minf.stbl.stts.entry_count > 1 {
 		trun_flags |= TRUN_SAMPLE_DURATION_PRESENT
 	}
-	sample_sizes := trak_type == "vide" ? segment.video_sample_sizes : segment.sound_sample_sizes 
+	sample_sizes := trak_type == "vide" ? segment.video_sample_sizes : segment.sound_sample_sizes
 	if len(sample_sizes) > 0 {
 		trun_flags |= TRUN_SAMPLE_SIZE_PRESENT
 		//fmt.println("SAMPLE SIZE PRESENT", sample_sizes)
@@ -530,7 +530,7 @@ create_traf :: proc(trak: Trak, segment: Segment) -> (traf: Traf) {
 	traf.trun = create_trun(trak, segment, trun_flags)
 	traf.box.size = 8
 	traf.box.size += traf.tfhd.fullbox.box.size + traf.tfdt.fullbox.box.size + traf.trun.fullbox.box.size
-	
+
 	return traf
 }
 
@@ -562,7 +562,7 @@ create_tfhd :: proc(trak: Trak, segment: Segment, tf_flags: int) -> (tfhd: Tfhd)
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DEFAULT_SAMPLE_DURATION_PRESENT == TFHD_DEFAULT_SAMPLE_DURATION_PRESENT {
-		
+
 		tfhd.default_sample_duration = trak_type == "vide" ? segment.video_decoding_times[0] : segment.sound_decoding_times[0]
 		size += size_of(u32be)
 	}
@@ -583,11 +583,11 @@ create_tfhd :: proc(trak: Trak, segment: Segment, tf_flags: int) -> (tfhd: Tfhd)
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT == TFHD_DEFAULT_SAMPLE_FLAGS_PRESENT {
-		tfhd.default_sample_flags = to_string(&handler_type) == "vide" ? 0x1010000 : 0x2000000 
+		tfhd.default_sample_flags = to_string(&handler_type) == "vide" ? 0x1010000 : 0x2000000
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DURATION_IS_EMPTY == TFHD_DURATION_IS_EMPTY {
-		
+
 		size += size_of(u32be)
 	}
 	if tf_flags & TFHD_DEFAULT_BASE_IS_MOOF == TFHD_DEFAULT_BASE_IS_MOOF {
@@ -632,7 +632,7 @@ create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun)
 		//fmt.println("TRUN_FIRST_SAMPLE_FLAGS_PRESENT")
 		trun.first_sample_flags = to_string(&handler_type) == "vide" ? 0x2000000 : 0
 		size += size_of(u32be)
-	} 
+	}
 
 	sample_count := to_string(&handler_type) == "vide" ?  segment.video_segment_sample_count : segment.sound_segment_sample_count
 	decoding_times := to_string(&handler_type) == "vide" ?  segment.video_decoding_times : segment.sound_decoding_times
@@ -642,10 +642,10 @@ create_trun :: proc(trak: Trak, segment: Segment, tr_flags: int) -> (trun: Trun)
 		if tr_flags & TRUN_SAMPLE_DURATION_PRESENT == TRUN_SAMPLE_DURATION_PRESENT {
 			for time in decoding_times {
 					trun.samples[i].sample_duration = time
-			}	
+			}
 			size += size_of(u32be)
 		}
-		
+
 		if tr_flags & TRUN_SAMPLE_SIZE_PRESENT == TRUN_SAMPLE_SIZE_PRESENT {
 			//log.debugf("%v", len(segment.sound_sample_sizes))
 			trun.samples[i].sample_size = to_string(&handler_type) == "vide" ? segment.video_sample_sizes[i] : segment.sound_sample_sizes[i] // 16842752 segment.video_sample_sizes[i]
@@ -784,7 +784,7 @@ create_init :: proc(mp4: Mp4) ->(init: Mp4){
 	  init.moov.traks[i].box.size -= u32be(total_size)
 	  init.moov.box.size -= u32be(total_size)
 	  init.moov.traks[i].tkhd.duration = 0
-	  init.moov.traks[i].edts.elst.entries[0].segment_duration = 0
+	  //init.moov.traks[i].edts.elst.entries[0].segment_duration = 0
 	  init.moov.traks[i].mdia.mdhd.duration = 0
 	}
 	init.moov.mvhd.duration = 0
@@ -808,4 +808,36 @@ create_init :: proc(mp4: Mp4) ->(init: Mp4){
 	init.mdat.data = {}
 	init.mdat.box.type = 0
 	return init
+}
+
+create_manifest :: proc(segment_count: int, segment_duration: f64, dir: string){
+        handle, err := os.open(fmt.tprintf("%smedia.m3u8", dir), os.O_CREATE)
+        defer os.close(handle)
+
+        os.flush(handle)
+
+        sb := &strings.Builder{}
+        sb = strings.builder_init_len(sb, 0)
+
+        //
+        //#EXTINF:6.006000,
+        //seg-0.m4s
+        //#EXTINF:6.006000,
+        //seg-1.m4s
+
+        fmt.sbprint(sb, "#EXTM3U\n")
+        fmt.sbprint(sb, "#EXT-X-VERSION:7\n")
+        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%v\n", segment_duration)
+        fmt.sbprint(sb, "#EXT-X-MEDIA-SEQUENCE:0\n")
+        fmt.sbprint(sb, "#EXT-X-PLAYLIST-TYPE:VOD\n")
+        fmt.sbprint(sb, "#EXT-X-MAP:URI=\"init.mp4\"\n")
+
+        for i in 0..<segment_count {
+            fmt.sbprintf(sb, "#EXTINF:%v,\n", segment_duration)
+            fmt.sbprintf(sb, "seg-%d.m4s\n", i)
+        }
+        fmt.sbprint(sb, "#EXT-X-ENDLIST")
+
+        os.write(handle, sb.buf[:])
+        strings.builder_destroy(sb)
 }
