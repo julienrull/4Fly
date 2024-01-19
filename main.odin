@@ -89,20 +89,59 @@ main :: proc() {
 	defer delete(vid)
 	os.read(f_vid, vid)
 	mp4_box, mp4_size := mp4.deserialize_mp4(vid, u64(size_video))
+    segment_count := int((f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale) ) / time)
+    last_segment_duration := (f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale)) - time * f64(segment_count)
     if entity == "all" {
-
+        for i in 0..=segment_count {
+        //for i in 0..=20 {
+            // FRAGMENT
+            segment_number := i
+            segment := mp4.Segment{}
+            if segment_number != segment_count {
+                segment = mp4.new_segment(&mp4_box, segment_number, time)
+            }else {
+                segment = mp4.new_segment(&mp4_box, segment_number, last_segment_duration)
+            }
+            // * STYP
+            seg_box := mp4.Mp4{}
+            seg_box.styp = mp4.create_styp(segment)
+            // * MOOF
+            seg_box.moof = mp4.create_moof(segment)
+            seg_box.mdat = mp4.create_mdat(segment, vid)
+            // * SIDX
+            sidxs := mp4.create_sidxs(segment, seg_box.moof.box.size + seg_box.mdat.box.size)
+            clear(&seg_box.sidxs)
+            for sidx in sidxs {
+                append(&seg_box.sidxs, sidx)
+            }
+            new_seg := mp4.serialize_mp4(seg_box)
+            handle, err := os.open(fmt.tprintf("%sseg-%d.m4s", dir, i), os.O_CREATE)
+            os.write(handle, new_seg)
+            os.close(handle)
+        }
+        mp4.create_manifest(segment_count, time, last_segment_duration, dir)
+        init := mp4.create_init(mp4_box)
+        init_b := mp4.serialize_mp4(init)
+        init_handle, init_err := os.open(fmt.tprintf("%sinit.mp4", dir), os.O_CREATE)
+        os.write(init_handle, init_b)
+        os.close(init_handle)
     }else if entity == "m3u8" {
-        segment_count := int((f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale) ) / time)
-        mp4.create_manifest(segment_count, time, dir)
+        mp4.create_manifest(segment_count, time, last_segment_duration, dir)
     }else if entity == "init" {
         init := mp4.create_init(mp4_box)
         init_b := mp4.serialize_mp4(init)
         init_handle, init_err := os.open(fmt.tprintf("%sinit.mp4", dir), os.O_CREATE)
-        defer os.close(init_handle)
         os.write(init_handle, init_b)
+        os.close(init_handle)
     }else{
         // FRAGMENT
-        segment := mp4.new_segment(&mp4_box, strconv.atoi(entity), time)
+        segment_number := strconv.atoi(entity)
+        segment := mp4.Segment{}
+        if segment_number != segment_count {
+            segment = mp4.new_segment(&mp4_box, segment_number, time)
+        }else {
+            segment = mp4.new_segment(&mp4_box, segment_number, last_segment_duration)
+        }
         // * STYP
         seg_box := mp4.Mp4{}
         seg_box.styp = mp4.create_styp(segment)
@@ -117,8 +156,8 @@ main :: proc() {
         }
         new_seg := mp4.serialize_mp4(seg_box)
         handle, err := os.open(fmt.tprintf("%sseg-%d.m4s", dir, strconv.atoi(entity)), os.O_CREATE)
-        defer os.close(handle)
         os.write(handle, new_seg)
+        os.close(handle)
     }
 }
 

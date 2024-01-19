@@ -810,7 +810,7 @@ create_init :: proc(mp4: Mp4) ->(init: Mp4){
 	return init
 }
 
-create_manifest :: proc(segment_count: int, segment_duration: f64, dir: string){
+create_manifest :: proc(segment_count: int, segment_duration: f64, last_segment_duration: f64, dir: string){
         handle, err := os.open(fmt.tprintf("%smedia.m3u8", dir), os.O_CREATE)
         defer os.close(handle)
 
@@ -832,8 +832,12 @@ create_manifest :: proc(segment_count: int, segment_duration: f64, dir: string){
         fmt.sbprint(sb, "#EXT-X-PLAYLIST-TYPE:VOD\n")
         fmt.sbprint(sb, "#EXT-X-MAP:URI=\"init.mp4\"\n")
 
-        for i in 0..<segment_count {
-            fmt.sbprintf(sb, "#EXTINF:%v,\n", segment_duration)
+        for i in 0..=segment_count {
+            if i != segment_count {
+                fmt.sbprintf(sb, "#EXTINF:%v,\n", segment_duration)
+            }else{
+                fmt.sbprintf(sb, "#EXTINF:%v,\n", last_segment_duration)
+            }
             fmt.sbprintf(sb, "seg-%d.m4s\n", i)
         }
         fmt.sbprint(sb, "#EXT-X-ENDLIST")
