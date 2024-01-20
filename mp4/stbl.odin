@@ -7,9 +7,9 @@ import "core:slice"
 Stbl :: struct {
 	// minf -> stbl
 	box:  Box,
+	stsd: Stsd,
 	stts: Stts,
 	ctts: Ctts,
-	stsd: Stsd,
 	stsz: Stsz,
 	stz2: Stz2,
 	stsc: Stsc,
@@ -39,17 +39,17 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 	name := to_string(&sub_box.type)
 	for acc < size {
 		switch name {
-		case "stts":
-			atom, atom_size := deserialize_stts(data[acc:])
-			stbl.stts = atom
+		case "stsd":
+			atom, atom_size := deserialize_stsd(data[acc:], handle_type)
+			stbl.stsd = atom
 			acc += atom_size
 		case "ctts":
 			atom, atom_size := deserialize_ctts(data[acc:])
 			stbl.ctts = atom
 			acc += atom_size
-		case "stsd":
-			atom, atom_size := deserialize_stsd(data[acc:], handle_type)
-			stbl.stsd = atom
+		case "stts":
+			atom, atom_size := deserialize_stts(data[acc:])
+			stbl.stts = atom
 			acc += atom_size
 		case "stsz":
 			atom, atom_size := deserialize_stsz(data[acc:])
@@ -109,8 +109,14 @@ deserialize_stbl :: proc(data: []byte, handle_type: u32be) -> (stbl: Stbl, acc: 
 serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
 	box_b := serialize_box(stbl.box)
 	data =  box_b[:]
-	name := stbl.stts.fullbox.box.type
+	name := stbl.stsd.fullbox.box.type
 	name_s := to_string(&name)
+	if name_s == "stsd" {
+		bin := serialize_stsd(stbl.stsd, handle_type)
+		data = slice.concatenate([][]byte{data[:], bin[:]})
+	}
+	name = stbl.stts.fullbox.box.type
+	name_s = to_string(&name)
 	if name_s == "stts" {
 		bin := serialize_stts(stbl.stts)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
@@ -119,12 +125,6 @@ serialize_stbl :: proc(stbl: Stbl, handle_type: u32be) -> (data: []byte) {
 	name_s = to_string(&name)
 	if name_s == "ctts" {
 		bin := serialize_ctts(stbl.ctts)
-		data = slice.concatenate([][]byte{data[:], bin[:]})
-	}
-	name = stbl.stsd.fullbox.box.type
-	name_s = to_string(&name)
-	if name_s == "stsd" {
-		bin := serialize_stsd(stbl.stsd, handle_type)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
 	}
 	name = stbl.stsz.fullbox.box.type

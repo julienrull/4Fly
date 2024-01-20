@@ -10,7 +10,7 @@ Mdat :: struct { // mdat
     data:   []byte
 }
 
-deserialize_mdat :: proc(data: []byte) -> (mdat: Mdat, acc: u64) { // TODO
+deserialize_mdat :: proc(data: []byte) -> (mdat: Mdat, acc: u64) {
     box, box_size := deserialize_box(data)
     mdat.box = box
     acc += box_size
@@ -22,12 +22,13 @@ deserialize_mdat :: proc(data: []byte) -> (mdat: Mdat, acc: u64) { // TODO
     }else {
         size = u64(box.size)
     }
+    fmt.println("mdat box size:", box.size)
     mdat.data = data[acc:size]
     acc += size - box_size
     return mdat, acc
 }
 
-serialize_mdat :: proc(mdat: Mdat) -> (data: []byte) { // TODO
+serialize_mdat :: proc(mdat: Mdat) -> (data: []byte) {
     box_b := serialize_box(mdat.box)
     data = slice.concatenate([][]byte{box_b[:], mdat.data[:]})
     return data

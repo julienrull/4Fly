@@ -10,9 +10,11 @@ Trak :: struct {
 	tkhd: Tkhd,
 	edts: Edts,
 	mdia: Mdia,
+    placeholders:          [dynamic]Placeholder,
 }
 
 deserialize_trak :: proc(data: []byte) -> (trak: Trak, acc: u64) {
+    trak.placeholders =  make([dynamic]Placeholder, 0, 16)
 	box, box_size := deserialize_box(data)
 	trak.box = box
 	acc += box_size
@@ -32,10 +34,10 @@ deserialize_trak :: proc(data: []byte) -> (trak: Trak, acc: u64) {
 			atom, atom_size := deserialize_tkhd(data[acc:])
 			trak.tkhd = atom
 			acc += atom_size
-		// fmt.println("name", name)
-		// fmt.println("atom.size", atom.fullbox.box.size)
-		// fmt.println("atom_size", atom_size)
-		// fmt.println(atom)
+        case "tref":
+            atom, atom_size := deserialize_placeholder(data[acc:])
+            append(&trak.placeholders, atom)
+            acc += atom_size
 		case "edts":
 			atom, atom_size := deserialize_edts(data[acc:])
 			trak.edts = atom
@@ -45,10 +47,9 @@ deserialize_trak :: proc(data: []byte) -> (trak: Trak, acc: u64) {
 			trak.mdia = atom
 			acc += atom_size
 		case "udta":
-			// atom, atom_size := deserialize_mdia(data[acc:])
-			// trak.mdia = atom
-			// acc += atom_size
-			acc += u64(sub_box.size)
+            atom, atom_size := deserialize_placeholder(data[acc:])
+            append(&trak.placeholders, atom)
+            acc += atom_size
 		case:
 			panic(fmt.tprintf("trak sub box '%v' not implemented", name))
 		}
@@ -78,5 +79,11 @@ serialize_trak :: proc(trak: Trak) -> (data: []byte) {
 		bin := serialize_mdia(trak.mdia)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
 	}
+    if len(trak.placeholders) > 0 {
+        for i:=0; i<len(trak.placeholders); i+=1 {
+            bin := serialize_placeholder(trak.placeholders[i])
+            data = slice.concatenate([][]byte{data[:], bin[:]})
+        }
+    }
 	return data
 }

@@ -158,6 +158,7 @@ main :: proc() {
         handle, err := os.open(fmt.tprintf("%sseg-%d.m4s", dir, strconv.atoi(entity)), os.O_CREATE)
         os.write(handle, new_seg)
         os.close(handle)
+        fmt.println("END")
     }
 }
 

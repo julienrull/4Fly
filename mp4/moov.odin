@@ -6,15 +6,17 @@ import "core:fmt"
 // MovieBox
 Moov :: struct { // moov
     box:            Box,
-    mvhd: Mvhd,
-    iods: Iods,
+    mvhd:           Mvhd,
+    iods:           Iods,
     traks:          [dynamic]Trak,
-    mvex: Mvex,
-    udta: Udta,
+    mvex:           Mvex,
+    udta:           Udta,
+    placeholders:   [dynamic]Placeholder,
 }
 
 deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
     moov.traks =  make([dynamic]Trak, 0, 16)
+    moov.placeholders =  make([dynamic]Placeholder, 0, 16)
     box, box_size := deserialize_box(data)
     moov.box = box
     acc += box_size
@@ -46,10 +48,14 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
                 atom, atom_size := deserialize_mvex(data[acc:])
                 moov.mvex = atom
                 acc += atom_size
-	    case "udta":
-                atom, atom_size := deserialize_udta(data[acc:])
-                moov.udta = atom
+            case "udta":
+                atom, atom_size := deserialize_placeholder(data[acc:])
+                append(&moov.placeholders, atom)
                 acc += atom_size
+                fmt.println("udta size:", atom_size)
+                //atom, atom_size := deserialize_udta(data[acc:])
+                //moov.udta = atom
+                //acc += atom_size
             case:
                 panic(fmt.tprintf("moov sub box '%v' not implemented", name))
         }
@@ -62,6 +68,7 @@ deserialize_moov :: proc(data: []byte) -> (moov: Moov, acc: u64) {
 }
 
 serialize_moov :: proc(moov: Moov) -> (data: []byte) {
+
     box_b := serialize_box(moov.box)
     data = slice.concatenate([][]byte{[]byte{}, box_b[:]})
     name := moov.mvhd.fullbox.box.type
@@ -75,21 +82,27 @@ serialize_moov :: proc(moov: Moov) -> (data: []byte) {
         bin := serialize_iods(moov.iods)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
-    
+
     if len(moov.traks) > 0 {
         for i:=0; i<len(moov.traks); i+=1 {
             bin := serialize_trak(moov.traks[i])
             data = slice.concatenate([][]byte{data[:], bin[:]})
         }
     }
+    //name = moov.udta.box.type
+    //if to_string(&name) == "udta" {
+    //    bin := serialize_udta(moov.udta)
+    //    data = slice.concatenate([][]byte{data[:], bin[:]})
+    //}
+    if len(moov.placeholders) > 0 {
+        for i:=0; i<len(moov.placeholders); i+=1 {
+            bin := serialize_placeholder(moov.placeholders[i])
+            data = slice.concatenate([][]byte{data[:], bin[:]})
+        }
+    }
     name = moov.mvex.box.type
     if to_string(&name) == "mvex" {
         bin := serialize_mvex(moov.mvex)
-        data = slice.concatenate([][]byte{data[:], bin[:]})
-    }
-    name = moov.udta.box.type
-    if to_string(&name) == "udta" {
-        bin := serialize_udta(moov.udta)
         data = slice.concatenate([][]byte{data[:], bin[:]})
     }
     return data

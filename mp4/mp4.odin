@@ -23,7 +23,6 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 			atom, atom_size := deserialize_ftype(data[acc:])
 			mp4.ftyp = atom
 			acc += atom_size
-			fmt.println(atom_size)
 		case "moov":
 			atom, atom_size := deserialize_moov(data[acc:])
 			mp4.moov = atom
@@ -48,20 +47,17 @@ deserialize_mp4 :: proc(data: []byte, size: u64) -> (mp4: Mp4, acc: u64) {
 			atom, atom_size := deserialize_mdat(data[acc:])
 			mp4.mdat = atom
 			acc += atom_size
-		// fmt.println(atom_size)
-		// fmt.println(atom.box)
 		case "free":
-			// TODO: free box implementation 
-			//atom, atom_size := deserialize_box(data[acc:])
-			//mp4.minf = atom
 			acc += u64(sub_box.size)
 		case:
-			panic(fmt.tprintf("mp4 sub box '%v' not implemented", name))
+            acc += sub_box_size
+            fmt.println(sub_box_size)
+            fmt.println(sub_box)
+			//panic(fmt.tprintf("mp4 sub box '%v' not implemented", name))
 		}
 		if acc < size {
 			sub_box, sub_box_size = deserialize_box(data[acc:])
 			name = to_string(&sub_box.type)
-			fmt.println(name)
 		}
 	}
 	return mp4, acc
@@ -83,6 +79,7 @@ serialize_mp4 :: proc(mp4: Mp4) -> (data: []byte) {
 	if to_string(&name) == "moov" {
 		bin := serialize_moov(mp4.moov)
 		data = slice.concatenate([][]byte{data[:], bin[:]})
+        fmt.println("moov size ser", len(bin))
 	}
 	name = mp4.wide.box.type
 	if to_string(&name) == "wide" {
