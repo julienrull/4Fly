@@ -2,8 +2,6 @@
 
 Encoder is a command line tool to fragment on the fly MP4 videos ready for HLS
 VOD protocol.
-From a source, you can generate HLS Manifest, init file and FMP4 segments
-in any order you want.
 
 > [!CAUTION]
 > This project is still in very early stages of development. Use at your own risk.
@@ -11,7 +9,29 @@ in any order you want.
 > [!NOTE]
 > We are looking for contributors to help us with this project, especially implementing analyzers for more protocols!!!
 
-## How to Use?
+## Features
+
+* Satisfy user HLS request, without muxing/demuxing MP4 file, to stream and download videos
+    * Manifest (media.m3u8)
+    * Initialization file (init.mp4)
+    * FMP4 segment (seg-%d.m4s)
+* Generate all file with one command
+* Dump MP4 files
+
+## Use cases
+
+- Avoid complex processes like multiplexing and demultiplexing
+- Save disk space
+
+## Usage
+
+### Build
+
+```
+odin build .
+```
+
+### Run
 
 ```
 encoder.exe <path> <flags...>
@@ -27,7 +47,7 @@ flags:
         Container's fragments type (fmp4, ts, ...)
 ```
 
-Exemple:
+###  Exemples:
 
 
 ```shell
@@ -39,9 +59,4 @@ encoder.exe .\test.mp4 -entity:init
 
 # Generate FMP4 20th fragment.
 encoder.exe .\test.mp4 -time:6.0 -entity:20 -type:fmp4
-```
-
-### Why is that?
-
-I was creating a little streaming services like Plex with GO and Svelte but I struggled with disk spaces as I had to keep two versions of the same video (fragmented and non fragmented) to upload streamable and downloadable videos.
-So, I searched for solutions in favor of patial instead of complete fragmentation but I didn't find anything to satisfy my needs, so I done it myself. 
+``` 
