@@ -1,4 +1,10 @@
-# Encoder
+# Table of Content
+
+* [Presentation](#presentation)
+  * [What is it ?](#what-is-it)
+  * [Why is that?](#why-is-that)
+
+# Presentation
 
 ## What is it ?
 
@@ -7,7 +13,7 @@ VOD protocol.
 From a source, you can generate HLS Manifest, init file and FMP4 segments
 in any order you want.
 
-![demo](.\demo.gif "Encoder Demo")
+![demo](demo.gif)
 
 ## Why is that?
 
