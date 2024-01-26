@@ -2,6 +2,7 @@ package mp4
 import "core:os"
 import "core:path/filepath"
 import "core:fmt"
+import "core:log"
 import "core:slice"
 import "core:mem"
 import "core:strings"
@@ -13,30 +14,58 @@ DumpError :: union {
 
 dump :: proc(file_path: string) -> DumpError {
     handle := fopen(file_path) or_return
+    file_size, errno := os.seek(handle, 0, os.SEEK_END)
+    os.seek(handle, 0, os.SEEK_SET)
     defer os.close(handle)
     box_b := [32]u8{}
-    lvl := 0
+    lvl := 1
     box_size_cumu := 0
-    size_heap := [100]int{}
-    remain_size: i64 = 0
-    for true {
+    size_heap := [15]u64be{}
+    size_heap[1] = u64be(file_size)
+    remain_size: u64be = 0
+    prev_size: u64be = 0
+    prev_box_size: u64be = 0
+    boxe_found := false
+    for size_heap[1] > 0{
         total_read := fread(handle, box_b[:]) or_return
         box, box_size := deserialize_box(box_b[:])
         type := to_string(&box.type)
         if slice.contains(BOXES, type) {
-            print_mp4_level(type, lvl)
-            size: u64 = 0
+            size: u64be = 0
             if box.size == 1 {
-                size = u64(box.largesize)
-            }else if box.size == 0 {
-
+                size = box.largesize
+            //}else if box.size == 0 {
             }else {
-                size = u64(box.size)
+                size = u64be(box.size)
             }
             os.seek(handle, -(i64(total_read) - i64(box_size)) , os.SEEK_CUR)
-            remain_size = i64(size - box_size)
+            remain_size = size - u64be(box_size)
+            if boxe_found {
+                i := lvl
+                for i != 0 {
+                    size_heap[i] -= prev_box_size
+                    i -= 1
+                }
+                lvl += 1
+                size_heap[lvl] = prev_size - prev_box_size
+                boxe_found = false
+            }else {
+                boxe_found = true
+            }
+            prev_size = size
+            prev_box_size = u64be(box_size)
+            print_box_level(type, lvl)
         }else {
-            os.seek(handle, remain_size - i64(total_read), os.SEEK_CUR)
+            os.seek(handle, i64(remain_size) - i64(total_read), os.SEEK_CUR)
+            i := lvl
+            for i != 0 {
+                size_heap[i] -= prev_size
+                if size_heap[i] == 0 {
+                    lvl -= 1
+                }
+                i -= 1
+            }
+            boxe_found = false
         }
     }
     return nil
@@ -66,31 +95,16 @@ fread :: proc(handle: os.Handle, buffer: []u8) -> (int, FileError) {
 }
 
 
-print_mp4_level :: proc(name: string, level: int) {
+print_box_level :: proc(name: string, level: int) {
 	str := ""
 	err: mem.Allocator_Error
 	i := 0
 	for i < level - 1 {
-		a := [?]string{str, "-"}
+		a := [?]string{str, "  "}
 		str, err = strings.concatenate(a[:])
 		i = i + 1
 	}
-	a := [?]string{str, name}
+	a := [?]string{str, fmt.tprintf("[%s]", name)}
 	str, err = strings.concatenate(a[:])
 	fmt.println(str, level)
 }
-//dump :: proc(data: []byte, size: u64, level: int = 0) -> (offset: u64) {
-//	lvl := level + 1
-//	for offset < size {
-//		box, box_size := deserialize_box(data[offset:])
-//		type_s := to_string(&box.type)
-//		_, ok := BOXES[type_s]
-//		if ok {
-//			print_mp4_level(type_s, lvl)
-//			offset += dump(data[offset + box_size:], u64(box.size) - box_size, lvl) + box_size
-//		} else {
-//			offset = size
-//		}
-//	}
-//	return offset
-//}

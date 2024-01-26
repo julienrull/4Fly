@@ -84,7 +84,10 @@ main :: proc() {
     cmd, path, time, type, entity := get_cmd_args(args)
     // ###
     if cmd == "dump" {
-        mp4.dump(path)
+        dump_error := mp4.dump(path)
+        if dump_error != nil {
+            panic(fmt.tprintf("%v\n", dump_error))
+        }
     }else{
         dir, file := filepath.split(path)
         size_video := os.file_size_from_path(path)
@@ -166,9 +169,9 @@ main :: proc() {
             handle, err := os.open(fmt.tprintf("%sseg-%d.m4s", dir, strconv.atoi(entity)), os.O_CREATE)
             os.write(handle, new_seg)
             os.close(handle)
-            fmt.println("END")
         }
     }
+    fmt.println("END")
 }
 
 

@@ -816,7 +816,7 @@ create_manifest :: proc(segment_count: int, segment_duration: f64, last_segment_
         handle, err := os.open(fmt.tprintf("%smedia.m3u8", dir), os.O_CREATE)
         defer os.close(handle)
 
-        os.flush(handle)
+        //os.flush(handle)
 
         sb := &strings.Builder{}
         sb = strings.builder_init_len(sb, 0)
