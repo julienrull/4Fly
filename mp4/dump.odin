@@ -12,6 +12,13 @@ DumpError :: union {
     FileError
 }
 
+handle_dump_error :: proc(dump_error: DumpError){
+    switch error in dump_error {
+        case FileError:
+            handle_file_error(error)
+    }
+}
+
 dump :: proc(file_path: string) -> DumpError {
     handle := fopen(file_path) or_return
     file_size, errno := os.seek(handle, 0, os.SEEK_END)
@@ -42,12 +49,16 @@ dump :: proc(file_path: string) -> DumpError {
             remain_size = size - u64be(box_size)
             if boxe_found {
                 i := lvl
-                for i != 0 {
-                    size_heap[i] -= prev_box_size
-                    i -= 1
+                if prev_size > 8 {
+                    for i != 0 {
+                        size_heap[i] -= prev_box_size
+                        i -= 1
+                    }
+                    lvl += 1
+                    size_heap[lvl] = prev_size - prev_box_size
+                }else{
+                    size_heap[lvl] -= u64be(box_size)
                 }
-                lvl += 1
-                size_heap[lvl] = prev_size - prev_box_size
                 boxe_found = false
             }else {
                 boxe_found = true
@@ -100,11 +111,11 @@ print_box_level :: proc(name: string, level: int) {
 	err: mem.Allocator_Error
 	i := 0
 	for i < level - 1 {
-		a := [?]string{str, "  "}
+		a := [?]string{str, "| "}
 		str, err = strings.concatenate(a[:])
 		i = i + 1
 	}
-	a := [?]string{str, fmt.tprintf("[%s]", name)}
+	a := [?]string{str, fmt.tprintf("\x1b[1;32m[%s]\x1b[0m", name)}
 	str, err = strings.concatenate(a[:])
-	fmt.println(str, level)
+	fmt.println(str, fmt.tprintf("\x1b[1;33m%d\x1b[0m", level))
 }

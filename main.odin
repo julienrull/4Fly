@@ -86,7 +86,7 @@ main :: proc() {
     if cmd == "dump" {
         dump_error := mp4.dump(path)
         if dump_error != nil {
-            panic(fmt.tprintf("%v\n", dump_error))
+            mp4.handle_dump_error(dump_error)
         }
     }else{
         dir, file := filepath.split(path)
@@ -171,7 +171,7 @@ main :: proc() {
             os.close(handle)
         }
     }
-    fmt.println("END")
+    //fmt.println("END")
 }
 
 
