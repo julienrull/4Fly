@@ -33,13 +33,17 @@ handle_open_file_error :: proc(error: OpenFileError) {
 ReadFileError       :: struct {
     message:    string,
     errno:      os.Errno,
+    handle: os.Handle
 }
 handle_read_file_error :: proc(error: ReadFileError) {
     if error.errno == 1 || error.errno == 21 {
         log.errorf("errno %d: ERROR_FILE_IS_NOT_DIR", error.errno)
+    }else if error.errno == 38 {
+        log.errorf("errno %d: ERROR_EOF", error.errno)
     }else {
         log.errorf("errno %d: UNKNOW_READ_FILE_ERROR", error.errno)
     }
+    os.close(error.handle)
 }
 WrongFileTypeError      :: struct {}
 //  ###

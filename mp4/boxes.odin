@@ -1,6 +1,7 @@
 package mp4
 
 BOXES := []string{
+    ".too",
     "ainf",
     "avcn",
     "bloc",
@@ -20,6 +21,7 @@ BOXES := []string{
     "ctab",
     "ctts",
     "cvru",
+    "data",
     "dinf",
     "dref",
     "dsgd",
@@ -48,6 +50,7 @@ BOXES := []string{
     "ihdr",
     "iinf",
     "iloc",
+    "ilst",
     "imap",
     "imif",
     "infe",
@@ -225,4 +228,5 @@ BOXES := []string{
     "matt",
     "pnot",
     "wide",
+    "Xtra"
 }

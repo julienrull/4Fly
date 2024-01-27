@@ -6,6 +6,7 @@ import "core:log"
 import "core:slice"
 import "core:mem"
 import "core:strings"
+import "core:unicode/utf8"
 
 
 DumpError :: union {
@@ -19,6 +20,9 @@ handle_dump_error :: proc(dump_error: DumpError){
     }
 }
 
+// TODO: better handling when remain <32 && <8 bytes
+// TODO: comment
+// TODO: maybe some do refactoring
 dump :: proc(file_path: string) -> DumpError {
     handle := fopen(file_path) or_return
     file_size, errno := os.seek(handle, 0, os.SEEK_END)
@@ -34,49 +38,64 @@ dump :: proc(file_path: string) -> DumpError {
     prev_box_size: u64be = 0
     boxe_found := false
     for size_heap[1] > 0{
-        total_read := fread(handle, box_b[:]) or_return
-        box, box_size := deserialize_box(box_b[:])
-        type := to_string(&box.type)
-        if slice.contains(BOXES, type) {
-            size: u64be = 0
-            if box.size == 1 {
-                size = box.largesize
-            //}else if box.size == 0 {
+        if size_heap[1] > 8 {
+            total_read := 0
+            if size_heap[1] < 32{
+                temp_b := make([]byte, size_heap[1])
+                defer delete(temp_b)
+                total_read = fread(handle, temp_b) or_return
+                // Copy temp_b in box_b
+                for i in 0..<len(temp_b) {
+                   box_b[i] = temp_b[i]
+                }
             }else {
-                size = u64be(box.size)
+                total_read = fread(handle, box_b[:]) or_return
             }
-            os.seek(handle, -(i64(total_read) - i64(box_size)) , os.SEEK_CUR)
-            remain_size = size - u64be(box_size)
-            if boxe_found {
-                i := lvl
-                if prev_size > 8 {
-                    for i != 0 {
-                        size_heap[i] -= prev_box_size
-                        i -= 1
+            box, box_size := deserialize_box(box_b[:])
+            type := to_string(&box.type)
+            if slice.contains(BOXES, type) {
+                size: u64be = 0
+                if box.size == 1 {
+                    size = box.largesize
+                //}else if box.size == 0 {
+                }else {
+                    size = u64be(box.size)
+                }
+                os.seek(handle, -(i64(total_read) - i64(box_size)) , os.SEEK_CUR)
+                remain_size = size - u64be(box_size)
+                if boxe_found {
+                    if prev_size > 8 {
+                        i := lvl
+                        for i != 0 {
+                            size_heap[i] -= prev_box_size
+                            i -= 1
+                        }
+                        lvl += 1
+                        size_heap[lvl] = prev_size - prev_box_size
+                    }else{
+                        size_heap[lvl] -= u64be(box_size)
                     }
-                    lvl += 1
-                    size_heap[lvl] = prev_size - prev_box_size
-                }else{
-                    size_heap[lvl] -= u64be(box_size)
+                    boxe_found = false
+                }else {
+                    boxe_found = true
+                }
+                prev_size = size
+                prev_box_size = u64be(box_size)
+                print_box_level(type, lvl)
+            }else {
+                os.seek(handle, i64(remain_size) - i64(total_read), os.SEEK_CUR)
+                i := lvl
+                for i != 0 {
+                    size_heap[i] -= prev_size
+                    if size_heap[i] == 0 {
+                        lvl -= 1
+                    }
+                    i -= 1
                 }
                 boxe_found = false
-            }else {
-                boxe_found = true
             }
-            prev_size = size
-            prev_box_size = u64be(box_size)
-            print_box_level(type, lvl)
         }else {
-            os.seek(handle, i64(remain_size) - i64(total_read), os.SEEK_CUR)
-            i := lvl
-            for i != 0 {
-                size_heap[i] -= prev_size
-                if size_heap[i] == 0 {
-                    lvl -= 1
-                }
-                i -= 1
-            }
-            boxe_found = false
+            size_heap[1] = 0
         }
     }
     return nil
@@ -100,6 +119,7 @@ fread :: proc(handle: os.Handle, buffer: []u8) -> (int, FileError) {
             return 0 , ReadFileError {
                 message = "Failed to file.",
                 errno = read_errno,
+                handle = handle
             }
         }
         return total_read, nil
@@ -115,7 +135,7 @@ print_box_level :: proc(name: string, level: int) {
 		str, err = strings.concatenate(a[:])
 		i = i + 1
 	}
-	a := [?]string{str, fmt.tprintf("\x1b[1;32m[%s]\x1b[0m", name)}
+	a := [?]string{str, fmt.tprintf("\x1b[1;32m[%s] \x1b[0m", name)}
 	str, err = strings.concatenate(a[:])
-	fmt.println(str, fmt.tprintf("\x1b[1;33m%d\x1b[0m", level))
+	fmt.println(str, fmt.tprintf("\x1b[1;33m%d\x1b[0m", level - 1))
 }
