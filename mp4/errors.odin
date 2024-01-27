@@ -2,10 +2,10 @@ package mp4
 import "core:os"
 import "core:log"
 
-//  ### FILE ERRORS
 FileError           :: union {
     OpenFileError,
     ReadFileError,
+    SeekFileError,
     WrongFileTypeError
 }
 
@@ -15,6 +15,8 @@ handle_file_error :: proc (error: FileError) {
             handle_open_file_error(nature)
         case ReadFileError:
             handle_read_file_error(nature)
+        case SeekFileError:
+            handle_seek_file_error(nature)
         case WrongFileTypeError:
     }
 }
@@ -45,10 +47,23 @@ handle_read_file_error :: proc(error: ReadFileError) {
     }
     os.close(error.handle)
 }
+SeekFileError       :: struct {
+    message:    string,
+    errno:      os.Errno,
+    handle: os.Handle
+}
+handle_seek_file_error :: proc(error: SeekFileError) {
+    if error.errno == 1 {
+        log.errorf("errno %d: ERROR_NEGATIVE_OFFSET", error.errno)
+    }else if error.errno == 38 {
+        log.errorf("errno %d: ERROR_EOF", error.errno)
+    }else {
+        log.errorf("errno %d: UNKNOW_SEEK_FILE_ERROR", error.errno)
+    }
+    os.close(error.handle)
+}
 WrongFileTypeError      :: struct {}
-//  ###
 
-//  ### BOX ERRORS
 BoxError            :: union {
     UnknowBoxError
 }

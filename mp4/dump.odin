@@ -9,97 +9,150 @@ import "core:strings"
 import "core:unicode/utf8"
 
 
-DumpError :: union {
+BoxError :: union {
     FileError
 }
 
-handle_dump_error :: proc(dump_error: DumpError){
+handle_dump_error :: proc(dump_error: BoxError){
     switch error in dump_error {
         case FileError:
             handle_file_error(error)
     }
 }
 
-// TODO: better handling when remain <32 && <8 bytes
-// TODO: comment
-// TODO: maybe some do refactoring
-dump :: proc(file_path: string) -> DumpError {
+
+AtomWrapper :: struct {
+    header: FullBox,
+    type: string,
+    total_size: u64be,
+    header_size: u64be,
+    body_size: u64be,
+    is_container: bool
+}
+
+// TODO Is box exist error
+read_atom :: proc(handle: os.Handle) -> (aw: AtomWrapper, err: FileError) {
+    buffer := [8]u8{}
+    total_read := fread(handle, buffer[:]) or_return
+    aw.header.box.size = (^u32be)(&buffer[0])^
+    aw.header.box.type = (^u32be)(&buffer[4])^
+    aw.total_size = u64be(aw.header.box.size)
+    aw.type = strings.clone_from_bytes(buffer[4:])
+    if aw.header.box.size == 1 {
+        total_read += fread(handle, buffer[:]) or_return
+        aw.header.box.largesize = (^u64be)(&buffer[0])^
+        aw.total_size = aw.header.box.largesize
+    }
+    //aw.type = to_string(&box.type)
+    if aw.type == "uuid" {
+        total_read += fread(handle, aw.header.box.usertype[:]) or_return
+    }
+    aw.header_size = u64be(total_read)
+    remain := aw.total_size - aw.header_size
+    if remain != 0 {
+        if remain >= 8 {
+            readed := fread(handle, buffer[:]) or_return
+            type_s := strings.clone_from_bytes(buffer[4:])
+            if slice.contains(BOXES, type_s) {
+                aw.is_container = true
+            }
+            os.seek(handle, -i64(readed), os.SEEK_CUR)
+        }
+        if remain >=4 && !aw.is_container {
+            total_read += fread(handle, buffer[:4]) or_return
+            aw.header.version = buffer[0]
+            aw.header.flags[0] = buffer[1]
+            aw.header.flags[1] = buffer[2]
+            aw.header.flags[2] = buffer[3]
+            if aw.type != "ftyp" {
+                    aw.header_size += 4
+            }
+        }
+    }
+    aw.body_size = aw.total_size - aw.header_size
+    os.seek(handle, -i64(total_read), os.SEEK_CUR)
+    return aw, err
+}
+
+Iterator :: union {
+    AtomWrapper,
+}
+
+next_atom :: proc(handle: os.Handle, old: Iterator) -> (next: Iterator, err: FileError) {
+    switch nature in old {
+        case AtomWrapper:
+            total_seek: i64 = 0
+            if nature.is_container{
+                total_seek = fseek(handle, i64(nature.header_size), os.SEEK_CUR) or_return
+            }else{
+                total_seek = fseek(handle, i64(nature.total_size), os.SEEK_CUR) or_return
+            }
+            atom, file_error := read_atom(handle)
+            if file_error != nil {
+                switch nature in file_error {
+                    case ReadFileError:
+                        if nature.errno == os.ERROR_EOF {
+                            return nil, nil
+                        }
+                        case OpenFileError, SeekFileError, WrongFileTypeError:
+                            return next,file_error
+                }
+            }
+            next = atom
+        case nil:
+            next = read_atom(handle) or_return
+    }
+    return next, nil
+}
+
+iterator_value :: proc(atom: Iterator) -> (value: AtomWrapper) {
+    switch nature in atom {
+        case AtomWrapper:
+            value = nature
+        case nil:
+            value = AtomWrapper{}
+    }
+    return value
+}
+
+
+dump :: proc(file_path: string) -> BoxError {
     handle := fopen(file_path) or_return
-    file_size, errno := os.seek(handle, 0, os.SEEK_END)
-    os.seek(handle, 0, os.SEEK_SET)
     defer os.close(handle)
-    box_b := [32]u8{}
+    file_size := fseek(handle, 0, os.SEEK_END) or_return
+    total_seek := fseek(handle, 0, os.SEEK_SET) or_return
     lvl := 1
-    box_size_cumu := 0
     size_heap := [15]u64be{}
     size_heap[1] = u64be(file_size)
-    remain_size: u64be = 0
-    prev_size: u64be = 0
-    prev_box_size: u64be = 0
-    boxe_found := false
-    for size_heap[1] > 0{
-        if size_heap[1] > 8 {
-            total_read := 0
-            if size_heap[1] < 32{
-                temp_b := make([]byte, size_heap[1])
-                defer delete(temp_b)
-                total_read = fread(handle, temp_b) or_return
-                // Copy temp_b in box_b
-                for i in 0..<len(temp_b) {
-                   box_b[i] = temp_b[i]
-                }
+    next := next_atom(handle, nil) or_return
+    for next != nil {
+        atom := iterator_value(next)
+        print_box_level(atom.type, lvl)
+        next = next_atom(handle, next) or_return
+        i := lvl
+        for i != 0 {
+            if atom.is_container {
+                size_heap[i] -= atom.header_size
             }else {
-                total_read = fread(handle, box_b[:]) or_return
+                size_heap[i] -= atom.total_size
             }
-            box, box_size := deserialize_box(box_b[:])
-            type := to_string(&box.type)
-            if slice.contains(BOXES, type) {
-                size: u64be = 0
-                if box.size == 1 {
-                    size = box.largesize
-                //}else if box.size == 0 {
-                }else {
-                    size = u64be(box.size)
-                }
-                os.seek(handle, -(i64(total_read) - i64(box_size)) , os.SEEK_CUR)
-                remain_size = size - u64be(box_size)
-                if boxe_found {
-                    if prev_size > 8 {
-                        i := lvl
-                        for i != 0 {
-                            size_heap[i] -= prev_box_size
-                            i -= 1
-                        }
-                        lvl += 1
-                        size_heap[lvl] = prev_size - prev_box_size
-                    }else{
-                        size_heap[lvl] -= u64be(box_size)
-                    }
-                    boxe_found = false
-                }else {
-                    boxe_found = true
-                }
-                prev_size = size
-                prev_box_size = u64be(box_size)
-                print_box_level(type, lvl)
-            }else {
-                os.seek(handle, i64(remain_size) - i64(total_read), os.SEEK_CUR)
-                i := lvl
-                for i != 0 {
-                    size_heap[i] -= prev_size
-                    if size_heap[i] == 0 {
-                        lvl -= 1
-                    }
-                    i -= 1
-                }
-                boxe_found = false
+            i -= 1
+        }
+        i = lvl
+        for i != 0 {
+            if size_heap[i] == 0 {
+                lvl -= 1
             }
-        }else {
-            size_heap[1] = 0
+            i -= 1
+        }
+        if atom.is_container {
+            lvl += 1
+            size_heap[lvl] = atom.body_size
         }
     }
     return nil
 }
+
 
 fopen :: proc(path: string, mode: int = os.O_RDONLY, perm: int = 0)  -> (os.Handle, FileError) {
     clean_file_path := filepath.clean(path)
@@ -117,14 +170,25 @@ fread :: proc(handle: os.Handle, buffer: []u8) -> (int, FileError) {
         total_read, read_errno := os.read(handle, buffer)
         if read_errno !=  os.ERROR_NONE {
             return 0 , ReadFileError {
-                message = "Failed to file.",
+                message = "Reading failed.",
                 errno = read_errno,
-                handle = handle
+                handle = handle,
             }
         }
         return total_read, nil
 }
 
+fseek :: proc(handle: os.Handle, offset: i64, whence: int) -> (i64, FileError) {
+        total_seek, seek_errno := os.seek(handle, offset, whence)
+        if seek_errno != os.ERROR_NONE {
+            return 0 , SeekFileError {
+                message = "Seeking faild.",
+                errno = seek_errno,
+                handle = handle,
+            }
+        }
+        return total_seek, nil
+}
 
 print_box_level :: proc(name: string, level: int) {
 	str := ""
