@@ -64,8 +64,5 @@ handle_seek_file_error :: proc(error: SeekFileError) {
 }
 WrongFileTypeError      :: struct {}
 
-BoxError            :: union {
-    UnknowBoxError
-}
 UnknowBoxError      :: struct {}
 

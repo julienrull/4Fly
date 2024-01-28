@@ -91,7 +91,7 @@ next_atom :: proc(handle: os.Handle, old: Iterator) -> (next: Iterator, err: Fil
             if file_error != nil {
                 switch nature in file_error {
                     case ReadFileError:
-                        if nature.errno == os.ERROR_EOF {
+                        if nature.errno ==  38 {
                             return nil, nil
                         }
                         case OpenFileError, SeekFileError, WrongFileTypeError:
@@ -148,6 +148,10 @@ dump :: proc(file_path: string) -> BoxError {
         if atom.is_container {
             lvl += 1
             size_heap[lvl] = atom.body_size
+        }
+        // TODO EOF not working on linux
+        if lvl == 0 {
+            next = nil
         }
     }
     return nil
