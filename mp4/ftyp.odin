@@ -3,6 +3,7 @@ package mp4
 import "core:slice"
 import "core:os"
 import "core:strings"
+import "core:bytes"
 
 // FileTypeBox
 Ftyp :: struct { // ftyp && styp
@@ -13,22 +14,22 @@ Ftyp :: struct { // ftyp && styp
 }
 
 FtypV2 :: struct {
-    box_wrapper: AtomWrapper,
+    box: BoxV2,
     major_brand: string,
     minor_version: u32be,
     compatible_brands:  []string,
 }
 
 read_ftyp :: proc(handle: os.Handle) -> (atom: FtypV2, total_read: int, err: FileError) {
-    aw := select_box(handle, "ftyp") or_return
-    atom.box_wrapper = aw
-    total_seek := fseek(handle, i64(aw.header_size), os.SEEK_CUR) or_return
+    box := select_box(handle, "ftyp") or_return
+    atom.box = box
+    total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}
     total_read += fread(handle, buffer[:]) or_return
     atom.major_brand =  strings.clone_from_bytes(buffer[:])
     total_read += fread(handle, buffer[:]) or_return
     atom.minor_version =  transmute(u32be)buffer
-    compatible_brands_count := (aw.body_size - u64be(total_read)) / 4
+    compatible_brands_count := (box.body_size - u64be(total_read)) / 4
     atom.compatible_brands = make([]string, compatible_brands_count)
     for i in 0..<compatible_brands_count {
         total_read += fread(handle, buffer[:]) or_return
@@ -38,9 +39,28 @@ read_ftyp :: proc(handle: os.Handle) -> (atom: FtypV2, total_read: int, err: Fil
 }
 
 write_ftyp :: proc(handle: os.Handle, ftyp: FtypV2) -> FileError {
-    // TODO: write header box
-
+    data := bytes.Buffer{}
+    bytes.buffer_init(&data, []u8{})
+    write_box(handle, ftyp.box)
     // TODO: write ftyp body
+    major_brand := ftyp.major_brand
+    major_brand_b := transmute([]u8)major_brand
+    major_brand_n := (^u32be)(&major_brand_b[0])^
+    bytes.buffer_write_ptr(&data, &major_brand_n, 4)
+    minor_version := ftyp.minor_version
+    bytes.buffer_write_ptr(&data, &minor_version, 4)
+    compatible_brands := ftyp.compatible_brands
+    compatible_brands_b := transmute([]u8)compatible_brands
+    compatible_brands_n := transmute([]u32be)compatible_brands_b
+    for i in 0..<len(compatible_brands) {
+        brand := compatible_brands[i]
+        brand_b := transmute([]u8)brand
+        brand_n := (^u32be)(&brand_b[0])^
+        bytes.buffer_write_ptr(&data, &brand_n, 4)
+    }
+    // TODO: handle io error for buffer_to_bytes
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
     return nil
 }
 
