@@ -7,6 +7,7 @@ import "core:slice"
 import "core:mem"
 import "core:strings"
 import "core:unicode/utf8"
+import "core:c/libc"
 
 
 BoxError :: union {
@@ -27,7 +28,8 @@ AtomWrapper :: struct {
     total_size: u64be,
     header_size: u64be,
     body_size: u64be,
-    is_container: bool
+    is_container: bool,
+    position: u64
 }
 
 // TODO Is box exist error
@@ -98,6 +100,8 @@ next_atom :: proc(handle: os.Handle, old: Iterator) -> (next: Iterator, err: Fil
                             return next,file_error
                 }
             }
+            prev_value := iterator_value(old)
+            atom.position = prev_value.position + u64(total_seek)
             next = atom
         case nil:
             next = read_atom(handle) or_return
