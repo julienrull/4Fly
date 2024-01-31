@@ -201,7 +201,7 @@ dump :: proc(handle: os.Handle) -> FileError {
 
 fopen :: proc(path: string, mode: int = os.O_RDONLY, perm: int = 0)  -> (os.Handle, FileError) {
     clean_file_path := filepath.clean(path)
-    handle, open_errno := os.open(clean_file_path, mode)
+    handle, open_errno := os.open(clean_file_path, mode, perm)
     if open_errno !=  os.ERROR_NONE {
         return os.Handle{}, OpenFileError {
             path = path,

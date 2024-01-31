@@ -94,13 +94,8 @@ main :: proc() {
 	if cmd == "dump" {
 		handle, err := mp4.fopen(path)
 		defer os.close(handle)
-		handle2, err2 := mp4.fopen("yo.mp4", os.O_CREATE)
-		defer os.close(handle2)
-		atom, total_read, read_err := mp4.read_ftyp(handle)
-		write_error := mp4.write_ftyp(handle2, atom)
-		write_error = mp4.write_ftyp(handle2, atom)
-		write_error = mp4.write_ftyp(handle2, atom)
-		write_error = mp4.write_ftyp(handle2, atom)
+		atom, read_err := mp4.read_stsc(handle)
+		log.debug(atom)
 		//dump_error := mp4.dump(handle)
 		//if dump_error != nil {
 		//    mp4.handle_dump_error(dump_error)

@@ -62,7 +62,6 @@ new_segment :: proc(mp4: ^Mp4, segment_number: int, segment_duration: f64) -> (s
             sample_cum := 0
 
             sample_number, _ := get_segment_first_sample(trak, trak.mdia.mdhd.timescale, u32be(segment.segment_number), f64(segment.segment_duration))
-                    fmt.println("IN LOOP ")
             sample_number_next, _ := get_segment_first_sample(trak, trak.mdia.mdhd.timescale, u32be(segment.segment_number + 1), f64(segment.segment_duration))
             //fmt.println("sample_number_prev", sample_number_next)
             //fmt.println("sample_number", sample_number)

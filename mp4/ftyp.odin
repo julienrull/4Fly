@@ -4,7 +4,7 @@ import "core:slice"
 import "core:os"
 import "core:strings"
 import "core:bytes"
-
+import "core:log"
 // FileTypeBox
 Ftyp :: struct { // ftyp && styp
     box:          Box,
@@ -20,12 +20,12 @@ FtypV2 :: struct {
     compatible_brands:  []string,
 }
 
-read_ftyp :: proc(handle: os.Handle) -> (atom: FtypV2, total_read: int, err: FileError) {
+read_ftyp :: proc(handle: os.Handle) -> (atom: FtypV2, err: FileError) {
     box := select_box(handle, "ftyp") or_return
     atom.box = box
     total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}
-    total_read += fread(handle, buffer[:]) or_return
+    total_read := fread(handle, buffer[:]) or_return
     atom.major_brand =  strings.clone_from_bytes(buffer[:])
     total_read += fread(handle, buffer[:]) or_return
     atom.minor_version =  transmute(u32be)buffer
@@ -35,13 +35,14 @@ read_ftyp :: proc(handle: os.Handle) -> (atom: FtypV2, total_read: int, err: Fil
         total_read += fread(handle, buffer[:]) or_return
         atom.compatible_brands[i] = strings.clone_from_bytes(buffer[:])
     }
-    return atom, total_read, nil
+    return atom, nil
 }
 
 write_ftyp :: proc(handle: os.Handle, ftyp: FtypV2) -> FileError {
     data := bytes.Buffer{}
     bytes.buffer_init(&data, []u8{})
-    write_box(handle, ftyp.box)
+    write_box(handle, ftyp.box) or_return
+    log.debug("???")
     // TODO: write ftyp body
     major_brand := ftyp.major_brand
     major_brand_b := transmute([]u8)major_brand
@@ -49,11 +50,8 @@ write_ftyp :: proc(handle: os.Handle, ftyp: FtypV2) -> FileError {
     bytes.buffer_write_ptr(&data, &major_brand_n, 4)
     minor_version := ftyp.minor_version
     bytes.buffer_write_ptr(&data, &minor_version, 4)
-    compatible_brands := ftyp.compatible_brands
-    compatible_brands_b := transmute([]u8)compatible_brands
-    compatible_brands_n := transmute([]u32be)compatible_brands_b
-    for i in 0..<len(compatible_brands) {
-        brand := compatible_brands[i]
+    for i in 0..<len(ftyp.compatible_brands) {
+        brand := ftyp.compatible_brands[i]
         brand_b := transmute([]u8)brand
         brand_n := (^u32be)(&brand_b[0])^
         bytes.buffer_write_ptr(&data, &brand_n, 4)

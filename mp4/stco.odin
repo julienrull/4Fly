@@ -2,6 +2,7 @@ package mp4
 
 import "core:slice"
 import "core:mem"
+import "core:os"
 
 // ChunkOffsetBox
 Stco :: struct {
@@ -15,6 +16,44 @@ Co64 :: struct {
     fullbox: FullBox,
     entry_count: u32be,
     chunks_offsets: []u64be
+}
+
+StcoV2 :: struct {
+    box:                BoxV2,
+    entry_count:        u32be,
+    entries:     []u32be
+}
+
+Co64V2 :: struct {
+    box:                BoxV2,
+    entry_count:        u32be,
+    entries:     []u64be
+}
+
+read_stco :: proc(handle: os.Handle) -> (atom: StcoV2, err: FileError) {
+    box := select_box(handle, "stco") or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 4)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]u32be)entries_b)[:atom.entry_count]
+    return atom, nil
+}
+
+read_co64 :: proc(handle: os.Handle) -> (atom: Co64V2, err: FileError) {
+    box := select_box(handle, "co64") or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 8)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]u64be)entries_b)[:atom.entry_count]
+    return atom, nil
 }
 
 deserialize_stco :: proc(data: []byte) -> (stco: Stco, acc: u64) {

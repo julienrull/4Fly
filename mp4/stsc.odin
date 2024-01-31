@@ -3,6 +3,7 @@ package mp4
 import "core:slice"
 import "core:mem"
 import "core:fmt"
+import "core:os"
 
 // SampleToChunkBox
 Stsc :: struct {
@@ -15,6 +16,26 @@ SampleToChunkBoxEntries :: struct {
      first_chunk:               u32be,
      samples_per_chunk:         u32be,
      sample_description_index:  u32be,
+}
+
+
+StscV2 :: struct {
+    box:            BoxV2,
+    entry_count:    u32be,
+    entries:        []SampleToChunkBoxEntries
+}
+
+read_stsc :: proc(handle: os.Handle) -> (atom: StscV2, err: FileError) {
+    box := select_box(handle, "stsc") or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 12)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]SampleToChunkBoxEntries)entries_b)[:atom.entry_count]
+    return atom, nil
 }
 
 deserialize_stsc :: proc(data: []byte) -> (stsc: Stsc, acc: u64) {
