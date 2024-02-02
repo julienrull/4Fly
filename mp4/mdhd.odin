@@ -32,7 +32,7 @@ MdhdV2 :: struct {
 	//pre_defined:               u16be,
 }
 
-read_mdhd :: proc(handle: os.Handle) -> (atom: MdhdV2, err: FileError) {
+read_mdhd :: proc(handle: os.Handle, id: int = 1) -> (atom: MdhdV2, err: FileError) {
     box := select_box(handle, "mdhd") or_return
     atom.box = box
     total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
@@ -60,15 +60,11 @@ read_mdhd :: proc(handle: os.Handle) -> (atom: MdhdV2, err: FileError) {
     // TODO: can't get language
     language_b := [3]u8{}
     temp := (transmute([]u16be)buffer[:2])[0]
-    fmt.printf("%b\n", temp)
-    temp = temp >> 1
-    //fmt.printf("%d\n", (temp & 0b00000000_00011111))
-    language_b[0] = u8(temp & 0b00000000_00011111)
-    temp = temp >> 5
-    language_b[1] = u8(temp & 0b00000000_00011111) << 5
-    temp = temp >> 5
-    language_b[2] = u8(temp & 0b00000000_00011111) << 5
-    atom.language = strings.clone_from_ptr(&language_b[0], 3)
+    fmt.printf("%16b\n", temp)
+    language_b[0] = u8((temp >> 10) & 0b00000000_00011111)
+    language_b[1] = u8((temp >> 5) & 0b00000000_00011111)
+    language_b[2] = u8(temp & 0b00000000_00011111)
+    atom.language = strings.clone_from_bytes(language_b[:])
     fseek(handle, 2, os.SEEK_CUR) or_return
     return atom, nil
 }

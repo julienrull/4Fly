@@ -25,8 +25,8 @@ SttsV2 :: struct {
 	entries:		[]TimeToSampleBoxEntrie,
 }
 
-read_stts :: proc(handle: os.Handle) -> (atom: SttsV2, err: FileError) {
-    box := select_box(handle, "stts") or_return
+read_stts :: proc(handle: os.Handle, id: int = 1) -> (atom: SttsV2, err: FileError) {
+    box := select_box(handle, "stts", id) or_return
     atom.box = box
     fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}

@@ -94,8 +94,10 @@ main :: proc() {
 	if cmd == "dump" {
 		handle, err := mp4.fopen(path)
 		defer os.close(handle)
-		atom, read_err := mp4.read_stsc(handle)
+		//write_err := mp4.write_fragment(handle)
+		atom, read_err := mp4.read_mdhd(handle)
 		log.debug(atom)
+		//log.debugf("%8b\n", u32be(257) >> 1)
 		//dump_error := mp4.dump(handle)
 		//if dump_error != nil {
 		//    mp4.handle_dump_error(dump_error)

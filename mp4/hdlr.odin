@@ -23,9 +23,9 @@ HdlrV2 :: struct { // mdia or meta -> hdlr
     name:           string // string
 }
 
-read_hdlr :: proc(handle: os.Handle) -> (atom: HdlrV2, err: FileError) {
+read_hdlr :: proc(handle: os.Handle, id: int = 1) -> (atom: HdlrV2, err: FileError) {
     buffer := [4]u8{}
-    atom.box = select_box(handle, "hdlr") or_return
+    atom.box = select_box(handle, "hdlr", id) or_return
     total_read := int(atom.box.header_size)
     total_seek := fseek(handle, i64(atom.box.header_size) + 4, os.SEEK_CUR) or_return
     total_read += fread(handle, buffer[:]) or_return

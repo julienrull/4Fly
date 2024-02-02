@@ -25,8 +25,8 @@ StscV2 :: struct {
     entries:        []SampleToChunkBoxEntries
 }
 
-read_stsc :: proc(handle: os.Handle) -> (atom: StscV2, err: FileError) {
-    box := select_box(handle, "stsc") or_return
+read_stsc :: proc(handle: os.Handle, id: int = 1) -> (atom: StscV2, err: FileError) {
+    box := select_box(handle, "stsc", id) or_return
     atom.box = box
     fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}

@@ -30,8 +30,8 @@ Co64V2 :: struct {
     entries:     []u64be
 }
 
-read_stco :: proc(handle: os.Handle) -> (atom: StcoV2, err: FileError) {
-    box := select_box(handle, "stco") or_return
+read_stco :: proc(handle: os.Handle, id: int = 1) -> (atom: StcoV2, err: FileError) {
+    box := select_box(handle, "stco", id) or_return
     atom.box = box
     fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}
@@ -43,8 +43,8 @@ read_stco :: proc(handle: os.Handle) -> (atom: StcoV2, err: FileError) {
     return atom, nil
 }
 
-read_co64 :: proc(handle: os.Handle) -> (atom: Co64V2, err: FileError) {
-    box := select_box(handle, "co64") or_return
+read_co64 :: proc(handle: os.Handle, id: int = 1) -> (atom: Co64V2, err: FileError) {
+    box := select_box(handle, "co64", id) or_return
     atom.box = box
     fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}

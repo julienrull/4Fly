@@ -42,8 +42,6 @@ write_ftyp :: proc(handle: os.Handle, ftyp: FtypV2) -> FileError {
     data := bytes.Buffer{}
     bytes.buffer_init(&data, []u8{})
     write_box(handle, ftyp.box) or_return
-    log.debug("???")
-    // TODO: write ftyp body
     major_brand := ftyp.major_brand
     major_brand_b := transmute([]u8)major_brand
     major_brand_n := (^u32be)(&major_brand_b[0])^

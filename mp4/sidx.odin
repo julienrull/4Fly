@@ -3,6 +3,7 @@ package mp4
 import "core:fmt"
 import "core:mem"
 import "core:slice"
+import "core:os"
 
 // SegmentIndexBox
 Sidx :: struct {
@@ -26,6 +27,68 @@ SegmentIndexBoxItems :: struct {
 	starts_with_SAP:     byte, // 1 bit
 	SAP_type:            byte, // 3 bit
 	SAP_delta_time:      u32be, // 28 bit
+}
+
+
+SidxV2 :: struct {
+	// sidx
+	box:								BoxV2,
+	reference_ID:                       u32be,
+	timescale:                          u32be,
+	earliest_presentation_time:			u64be,
+	first_offset:						u64be,
+	//reserved:                           u16be,
+	reference_count:                    u16be,
+	items:                              []SegmentIndexBoxItems,
+}
+
+read_segment_indexes :: proc(handle: os.Handle, count: u16be) -> (items: []SegmentIndexBoxItems, error: FileError) {
+	items = make([]SegmentIndexBoxItems, count)
+	buffer := [12]u8{}
+	for i in 0..<len(items){
+		fread(handle, buffer[:]) or_return
+		tmp: []u32be = transmute([]u32be)buffer[:]
+		fmt.printf("%32b\n", tmp[2])
+		items[i].reference_type = byte(tmp[0] >> 31)
+		items[i].referenced_size = tmp[0] & 0x7FFFFFFF
+		items[i].subsegment_duration = tmp[1]
+		items[i].starts_with_SAP = byte(tmp[2] >> 31)
+		items[i].SAP_type = byte((tmp[2]  >> 28))
+		items[i].SAP_delta_time = tmp[2] & 0x0FFFFFFF
+	}
+	return items, nil
+}
+
+
+read_sidx :: proc(handle: os.Handle, id: int = 1) -> (atom: SidxV2, err: FileError) {
+    box := select_box(handle, "sidx", id) or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [8]u8{}
+    fread(handle, buffer[:]) or_return
+	data := transmute([]u32be)buffer[:]
+    atom.reference_ID = data[0]
+    atom.timescale = data[1]
+	if box.version == 1 {
+		fread(handle, buffer[:]) or_return
+		atom.earliest_presentation_time = transmute(u64be)buffer
+		fread(handle, buffer[:]) or_return
+		atom.first_offset = transmute(u64be)buffer
+	}else {
+		fread(handle, buffer[:]) or_return
+		data = transmute([]u32be)buffer[:]
+    	atom.earliest_presentation_time = u64be(data[0])
+    	atom.first_offset = u64be(data[1])
+	}
+    fseek(handle, 2, os.SEEK_CUR) or_return
+    fread(handle, buffer[:2]) or_return
+    atom.reference_count = (transmute([]u16be)buffer[:2])[0]
+    atom.items = read_segment_indexes(handle, atom.reference_count) or_return
+    return atom, nil
+}
+
+write_sidx :: proc(handle: os.Handle, atom: SidxV2) -> FileError {
+	return nil
 }
 
 deserialize_sidx :: proc(data: []byte) -> (sidx: Sidx, acc: u64) {
