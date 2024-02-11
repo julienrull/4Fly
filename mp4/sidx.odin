@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:mem"
 import "core:slice"
 import "core:os"
+import "core:bytes"
 
 // SegmentIndexBox
 Sidx :: struct {
@@ -59,6 +60,20 @@ read_segment_indexes :: proc(handle: os.Handle, count: u16be) -> (items: []Segme
 	return items, nil
 }
 
+write_segment_indexes :: proc(buffer: ^bytes.Buffer, atom: SidxV2) -> FileError {
+	for i in 0..<len(atom.items){
+		reference_type := u32be(atom.items[i].reference_type)  << 31
+		temp := reference_type | atom.items[i].referenced_size
+		bytes.buffer_write_ptr(buffer, &temp, 4)
+		subsegment_duration := atom.items[i].subsegment_duration
+		bytes.buffer_write_ptr(buffer, &subsegment_duration, 4)
+		starts_with_SAP := u32be(atom.items[i].starts_with_SAP) << 31
+		SAP_type := u32be(atom.items[i].SAP_type) << 28
+		temp = starts_with_SAP | SAP_type | atom.items[i].SAP_delta_time
+		bytes.buffer_write_ptr(buffer, &temp, 4)
+	}
+	return nil
+}
 
 read_sidx :: proc(handle: os.Handle, id: int = 1) -> (atom: SidxV2, err: FileError) {
     box := select_box(handle, "sidx", id) or_return
@@ -87,7 +102,41 @@ read_sidx :: proc(handle: os.Handle, id: int = 1) -> (atom: SidxV2, err: FileErr
     return atom, nil
 }
 
-write_sidx :: proc(handle: os.Handle, atom: SidxV2) -> FileError {
+
+write_sidx :: proc(handle: os.Handle, atom: SidxV2, version: u8 = 1, is_large_size: bool = false) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+	atom_cpy.box.is_container = false
+	atom_cpy.box.version = version
+	atom_cpy.box.is_fullbox = true
+	atom_cpy.box.is_large_size = is_large_size
+	atom_cpy.box.total_size = 0
+	atom_cpy.box.header_size = 12
+	atom_cpy.box.body_size = 12
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.reference_ID, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.timescale, 4)
+	if atom.box.version == 1 {
+		bytes.buffer_write_ptr(&data, &atom_cpy.earliest_presentation_time, 8)
+		bytes.buffer_write_ptr(&data, &atom_cpy.first_offset, 8)
+		atom_cpy.box.body_size += 16
+	}else {
+		earliest_presentation_time := u32be(atom.earliest_presentation_time)
+		bytes.buffer_write_ptr(&data, &earliest_presentation_time, 4)
+		first_offset := u32be(atom.first_offset)
+		bytes.buffer_write_ptr(&data, &first_offset, 4)
+		atom_cpy.box.body_size += 8
+	}
+	pre_defined: u16be = 0
+	bytes.buffer_write_ptr(&data, &pre_defined, 2)
+	bytes.buffer_write_ptr(&data, &atom_cpy.reference_count, 2)
+	write_segment_indexes(&data, atom_cpy)
+	atom_cpy.box.body_size += 12 * u64be(atom_cpy.reference_count)
+	atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size
+    // TODO: handle io error for buffer_to_bytes
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
 	return nil
 }
 
