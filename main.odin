@@ -98,8 +98,7 @@ main :: proc() {
 		defer os.close(handle)
 
 		atom, read_err := mp4.read_tfhd(handle)
-		fmt.println(atom)
-		//write_err := mp4.write_sidx(handle2, atom)
+		write_err := mp4.write_tfhd(handle2, atom)
 
 		//dump_error := mp4.dump(handle)
 		//if dump_error != nil {
