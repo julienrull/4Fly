@@ -97,8 +97,8 @@ main :: proc() {
 		handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
 		defer os.close(handle)
 
-		atom, read_err := mp4.read_tfhd(handle)
-		write_err := mp4.write_tfhd(handle2, atom)
+		atom, read_err := mp4.read_tfdt(handle)
+		write_err := mp4.write_tfdt(handle2, atom, atom.box.version)
 
 		//dump_error := mp4.dump(handle)
 		//if dump_error != nil {
