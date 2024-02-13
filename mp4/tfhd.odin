@@ -43,8 +43,8 @@ TfhdV2 :: struct {
     default_sample_flags:               u32be,
 }
 
-read_tfhd :: proc(handle: os.Handle) -> (atom: TfhdV2, error: FileError) {
-    atom.box = select_box(handle, "tfhd") or_return
+read_tfhd :: proc(handle: os.Handle, id: int = 1) -> (atom: TfhdV2, error: FileError) {
+    atom.box = select_box(handle, "tfhd", id) or_return
     total_seek := fseek(handle, i64(atom.box.header_size), os.SEEK_CUR) or_return
     buffer := [8]u8{}
     fread(handle, buffer[:4]) or_return

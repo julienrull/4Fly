@@ -47,8 +47,8 @@ TrunV2 :: struct { // traf -> trun
    sample_composition_time_offset_present:      bool,
 }
 
-read_trun :: proc(handle: os.Handle) -> (atom: TrunV2, error: FileError) {
-    atom.box = select_box(handle, "trun") or_return
+read_trun :: proc(handle: os.Handle, id: int = 1) -> (atom: TrunV2, error: FileError) {
+    atom.box = select_box(handle, "trun", id) or_return
     total_seek := fseek(handle, i64(atom.box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}
     fread(handle, buffer[:]) or_return

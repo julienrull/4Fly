@@ -18,8 +18,8 @@ TfdtV2 :: struct {
 }
 
 
-read_tfdt :: proc(handle: os.Handle) -> (atom: TfdtV2, error: FileError) {
-    atom.box = select_box(handle, "tfdt") or_return
+read_tfdt :: proc(handle: os.Handle, id: int = 1) -> (atom: TfdtV2, error: FileError) {
+    atom.box = select_box(handle, "tfdt", id) or_return
     total_seek := fseek(handle, i64(atom.box.header_size), os.SEEK_CUR) or_return
     buffer := [8]u8{}
     if atom.box.version == 1 {
