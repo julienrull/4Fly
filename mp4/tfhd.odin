@@ -49,32 +49,32 @@ read_tfhd :: proc(handle: os.Handle) -> (atom: TfhdV2, error: FileError) {
     buffer := [8]u8{}
     fread(handle, buffer[:4]) or_return
     atom.track_ID = (transmute([]u32be)buffer[:4])[0]
-    if u32be(atom.box.flags[2]) & BASE_DATA_OFFSET_PRESENT            == BASE_DATA_OFFSET_PRESENT {
+    if atom.box.flags[2] & BASE_DATA_OFFSET_PRESENT            == BASE_DATA_OFFSET_PRESENT {
         fread(handle, buffer[:]) or_return
         atom.base_data_offset = transmute(u64be)buffer
         atom.base_data_offset_present = true
     }
-    if u32be(atom.box.flags[2]) & SAMPLE_DESCRIPTION_INDEX_PRESENT    == SAMPLE_DESCRIPTION_INDEX_PRESENT {
+    if atom.box.flags[2] & SAMPLE_DESCRIPTION_INDEX_PRESENT    == SAMPLE_DESCRIPTION_INDEX_PRESENT {
         fread(handle, buffer[:4]) or_return
         atom.sample_description_index = (transmute([]u32be)buffer[:4])[0]
         atom.sample_description_index_present = true
      }
-    if u32be(atom.box.flags[2]) & DEFAULT_SAMPLE_DURATION_PRESENT     == DEFAULT_SAMPLE_DURATION_PRESENT {
+    if atom.box.flags[2] & DEFAULT_SAMPLE_DURATION_PRESENT     == DEFAULT_SAMPLE_DURATION_PRESENT {
         fread(handle, buffer[:4]) or_return
         atom.default_sample_duration = (transmute([]u32be)buffer[:4])[0]
         atom.default_sample_duration_present = true
     }
-    if u32be(atom.box.flags[2]) & DEFAULT_SAMPLE_SIZE_PRESENT         == DEFAULT_SAMPLE_SIZE_PRESENT {
+    if atom.box.flags[2] & DEFAULT_SAMPLE_SIZE_PRESENT         == DEFAULT_SAMPLE_SIZE_PRESENT {
         fread(handle, buffer[:4]) or_return
         atom.default_sample_size = (transmute([]u32be)buffer[:4])[0]
         atom.default_sample_size_present = true
     }
-    if u32be(atom.box.flags[2]) & DEFAULT_SAMPLE_FLAGS_PRESENT        == DEFAULT_SAMPLE_FLAGS_PRESENT {
+    if atom.box.flags[2] & DEFAULT_SAMPLE_FLAGS_PRESENT        == DEFAULT_SAMPLE_FLAGS_PRESENT {
         fread(handle, buffer[:4]) or_return
         atom.default_sample_flags = (transmute([]u32be)buffer[:4])[0]
         atom.default_sample_flags_present = true
     }
-    if u32be(atom.box.flags[0]) & DURATION_IS_EMPTY                   == DURATION_IS_EMPTY {
+    if atom.box.flags[0] & (DURATION_IS_EMPTY >> 16)                   == (DURATION_IS_EMPTY >> 16) {
         atom.duration_is_empty = true
     }
     return atom, nil
@@ -97,32 +97,32 @@ write_tfhd :: proc(handle: os.Handle, atom: TfhdV2, is_large_size: bool = false)
     bytes.buffer_write_ptr(&data, &atom_cpy.track_ID, 4)
 
     if atom_cpy.base_data_offset_present {
-        atom_cpy.box.flags[0] |= u8(BASE_DATA_OFFSET_PRESENT)
+        atom_cpy.box.flags[2] |= u8(BASE_DATA_OFFSET_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.base_data_offset, 8)
 	    atom_cpy.box.body_size += 8
     }
     if atom_cpy.sample_description_index_present {
-        atom_cpy.box.flags[0] |= u8(SAMPLE_DESCRIPTION_INDEX_PRESENT)
+        atom_cpy.box.flags[2] |= u8(SAMPLE_DESCRIPTION_INDEX_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.sample_description_index, 4)
 	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_duration_present {
-        atom_cpy.box.flags[0] |= u8(TFHD_DEFAULT_SAMPLE_DURATION_PRESENT)
+        atom_cpy.box.flags[2] |= u8(TFHD_DEFAULT_SAMPLE_DURATION_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_duration, 4)
 	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_size_present {
-        atom_cpy.box.flags[0] |= u8(DEFAULT_SAMPLE_SIZE_PRESENT)
+        atom_cpy.box.flags[2] |= u8(DEFAULT_SAMPLE_SIZE_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_size, 4)
 	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_flags_present {
-        atom_cpy.box.flags[0] |= u8(DEFAULT_SAMPLE_FLAGS_PRESENT)
+        atom_cpy.box.flags[2] |= u8(DEFAULT_SAMPLE_FLAGS_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_flags, 4)
 	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.duration_is_empty {
-        atom_cpy.box.flags[2] |= u8(DURATION_IS_EMPTY >> 16)
+        atom_cpy.box.flags[0] |= u8(DURATION_IS_EMPTY >> 16)
         // TODO: ???
     }
 

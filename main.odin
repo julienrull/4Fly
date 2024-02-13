@@ -94,16 +94,16 @@ main :: proc() {
 	if cmd == "dump" {
 		handle, err := mp4.fopen(path)
 		defer os.close(handle)
-		//handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
-		//defer os.close(handle)
+		handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
+		defer os.close(handle)
 
-		//atom, read_err := mp4.read_tfdt(handle)
-		//write_err := mp4.write_tfdt(handle2, atom, atom.box.version)
+		atom, read_err := mp4.read_tfhd(handle)
+		write_err := mp4.write_tfhd(handle2, atom)
 
-		dump_error := mp4.dump(handle)
-		if dump_error != nil {
-		    mp4.handle_dump_error(dump_error)
-		}
+		//dump_error := mp4.dump(handle)
+		//if dump_error != nil {
+		//    mp4.handle_dump_error(dump_error)
+		//}
 	} else {
 		dir, file := filepath.split(path)
 		size_video := os.file_size_from_path(path)
