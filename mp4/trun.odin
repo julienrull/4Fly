@@ -2,6 +2,8 @@ package mp4
 
 import "core:mem"
 import "core:slice"
+import "core:os"
+import "core:bytes"
 
 // TrackRunBox
 Trun :: struct { // traf -> trun
@@ -21,6 +23,125 @@ TrackRunBoxSample :: struct {
     sample_composition_time_offset:     u32be,
 }
 
+
+DATA_OFFSET_PRESENT                     :: 0x000001
+FIRST_SAMPLE_FLAGS_PRESENT              :: 0x000004
+SAMPLE_DURATION_PRESENT                 :: 0x000100
+SAMPLE_SIZE_PRESENT                     :: 0x000200
+SAMPLE_FLAGS_PRESENT                    :: 0x000400
+SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT  :: 0x000800
+
+TrunV2 :: struct { // traf -> trun
+    box:                                        BoxV2,
+    sample_count:                               u32be,
+    data_offset:                                i32be,
+    first_sample_flags:                         u32be,
+    samples:                                    []TrackRunBoxSample,
+
+   data_offset_present:                         bool,
+   first_sample_flags_present:                  bool,
+   sample_duration_present:                     bool,
+   sample_size_present:                         bool,
+   sample_flags_present:                        bool,
+   sample_composition_time_offset_present:      bool,
+}
+
+read_trun :: proc(handle: os.Handle) -> (atom: TrunV2, error: FileError) {
+    atom.box = select_box(handle, "trun") or_return
+    total_seek := fseek(handle, i64(atom.box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:4]) or_return
+    atom.sample_count = transmute(u32be)buffer
+    if u32be(atom.box.flags[2]) & DATA_OFFSET_PRESENT           == DATA_OFFSET_PRESENT {
+        fread(handle, buffer[:]) or_return
+        atom.data_offset = transmute(i32be)buffer
+        atom.data_offset_present = true
+    }
+    if u32be(atom.box.flags[2]) & FIRST_SAMPLE_FLAGS_PRESENT    == FIRST_SAMPLE_FLAGS_PRESENT {
+        fread(handle, buffer[:]) or_return
+        atom.first_sample_flags = transmute(u32be)buffer
+        atom.first_sample_flags_present = true
+     }
+
+    atom.samples = make([]TrackRunBoxSample, atom.sample_count)
+    for i in 0..<atom.sample_count {
+        if u32be(atom.box.flags[1]) & SAMPLE_DURATION_PRESENT           == SAMPLE_DURATION_PRESENT {
+            fread(handle, buffer[:]) or_return
+            atom.samples[i].sample_duration = transmute(u32be)buffer
+            atom.sample_duration_present = true
+        }
+        if u32be(atom.box.flags[1]) & SAMPLE_SIZE_PRESENT               == SAMPLE_SIZE_PRESENT {
+            fread(handle, buffer[:]) or_return
+            atom.samples[i].sample_size = transmute(u32be)buffer
+            atom.sample_size_present = true
+        }
+        if u32be(atom.box.flags[1]) & SAMPLE_FLAGS_PRESENT              == SAMPLE_FLAGS_PRESENT {
+            fread(handle, buffer[:]) or_return
+            atom.samples[i].sample_flags = transmute(u32be)buffer
+            atom.sample_flags_present = true
+        }
+        if u32be(atom.box.flags[1]) & SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT == SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT {
+            fread(handle, buffer[:]) or_return
+            atom.samples[i].sample_composition_time_offset = transmute(u32be)buffer
+            atom.sample_composition_time_offset_present = true
+        }
+    }
+    return atom, nil
+}
+
+write_trun :: proc(handle: os.Handle, atom: TrunV2, is_large_size: bool = false) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+	atom_cpy.box.is_container = false
+	atom_cpy.box.version = 0
+	atom_cpy.box.is_fullbox = true
+	atom_cpy.box.is_large_size = is_large_size
+	atom_cpy.box.total_size = 0
+	atom_cpy.box.header_size = 12
+	atom_cpy.box.body_size = 4
+    if is_large_size {
+        atom_cpy.box.header_size += 8
+    }
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.sample_count, 4)
+    if atom_cpy.data_offset_present {
+        atom_cpy.box.flags[0] |= u8(DATA_OFFSET_PRESENT)
+        bytes.buffer_write_ptr(&data, &atom_cpy.data_offset, 4)
+	    atom_cpy.box.body_size += 4
+    }
+    if atom_cpy.data_offset_present {
+        atom_cpy.box.flags[0] |= u8(FIRST_SAMPLE_FLAGS_PRESENT)
+        bytes.buffer_write_ptr(&data, &atom_cpy.first_sample_flags, 4)
+	    atom_cpy.box.body_size += 4
+    }
+    for i in 0..<atom_cpy.sample_count {
+        if atom_cpy.sample_duration_present {
+            atom_cpy.box.flags[1] |= u8(SAMPLE_DURATION_PRESENT >> 8)
+            bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_duration, 4)
+            atom_cpy.box.body_size += 4
+        }
+        if atom_cpy.sample_size_present {
+            atom_cpy.box.flags[1] |= u8(SAMPLE_SIZE_PRESENT >> 8)
+            bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_size, 4)
+            atom_cpy.box.body_size += 4
+        }
+        if atom_cpy.sample_flags_present {
+            atom_cpy.box.flags[1] |= u8(SAMPLE_FLAGS_PRESENT >> 8)
+            bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_flags, 4)
+            atom_cpy.box.body_size += 4
+        }
+        if atom_cpy.sample_composition_time_offset_present {
+            atom_cpy.box.flags[1] |= u8(SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT >> 8)
+            bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_duration, 4)
+            atom_cpy.box.body_size += 4
+        }
+    }
+    atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
+}
 
 deserialize_trun :: proc(data: []byte) -> (trun: Trun, acc: u64) {
     fullbox, fullbox_size := deserialize_fullbox(data)
