@@ -142,7 +142,6 @@ write_trun :: proc(handle: os.Handle, atom: TrunV2, is_large_size: bool = false)
     write_box(handle, atom_cpy.box) or_return
     total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
     bytes.buffer_destroy(&data)
-    fmt.println(atom_cpy.box.flags)
 	return nil
 }
 

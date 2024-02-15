@@ -94,15 +94,20 @@ main :: proc() {
 	if cmd == "dump" {
 		handle, err := mp4.fopen(path)
 		defer os.close(handle)
-		handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
-		defer os.close(handle)
+		//handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
+		//defer os.close(handle)
 
-		atom, read_err := mp4.read_tfhd(handle)
-		write_err := mp4.write_tfhd(handle2, atom)
+		//atom, read_err := mp4.read_tfhd(handle)
+		//write_err := mp4.write_tfhd(handle2, atom)
 
-		//dump_error := mp4.dump(handle)
-		//if dump_error != nil {
-		//    mp4.handle_dump_error(dump_error)
+		dump_error := mp4.dump(handle)
+		if dump_error != nil {
+		    mp4.handle_dump_error(dump_error)
+		}
+
+		//err_frag := mp4.write_fragment(handle)
+		//if err_frag != nil {
+		//	mp4.handle_file_error(err_frag)
 		//}
 	} else {
 		dir, file := filepath.split(path)

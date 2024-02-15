@@ -1,6 +1,7 @@
 package mp4
 
 import "core:slice"
+import "core:os"
 
 // TrackHeaderBox
 Tkhd :: struct { // trak -> tkhd
@@ -25,7 +26,62 @@ Tkhd :: struct { // trak -> tkhd
 }
 
 
+TkhdV2 :: struct {
+    box:                    BoxV2,
+    creation_time:              u64be,
+    modification_time:          u64be,
+    track_ID:                   u32be,
+    duration:                   u64be,
 
+    layer:                      i16be,
+    alternate_group:            i16be,
+    volume:                     i16be,
+    matrixx:                    [9]i32be,
+    width:                      u32be,
+    height:                     u32be,
+}
+
+read_tkhd :: proc(handle: os.Handle, id: int = 1) -> (atom: TkhdV2, err: FileError) {
+    box := select_box(handle, "tkhd", id) or_return
+    atom.box = box
+    total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [8]u8{}
+    if box.version == 1 {
+        fread(handle, buffer[:]) or_return
+        atom.creation_time = transmute(u64be)buffer
+        fread(handle, buffer[:]) or_return
+        atom.modification_time = transmute(u64be)buffer
+        fread(handle, buffer[:4]) or_return
+        atom.track_ID = (transmute([]u32be)buffer[:4])[0]
+        fread(handle, buffer[:4]) or_return
+        fread(handle, buffer[:]) or_return
+        atom.duration = transmute(u64be)buffer
+    }else{
+        fread(handle, buffer[:4]) or_return
+        atom.creation_time = u64be((transmute([]u32be)buffer[:4])[0])
+        fread(handle, buffer[:4]) or_return
+        atom.modification_time = transmute(u64be)buffer
+        fread(handle, buffer[:4]) or_return
+        atom.track_ID = (transmute([]u32be)buffer[:4])[0]
+        fread(handle, buffer[:4]) or_return
+        fread(handle, buffer[:4]) or_return
+        atom.duration = u64be((transmute([]u32be)buffer[:4])[0])
+    }
+    fread(handle, buffer[:2]) or_return
+    atom.layer = (transmute([]i16be)buffer[:2])[0]
+    fread(handle, buffer[:2]) or_return
+    atom.alternate_group = (transmute([]i16be)buffer[:2])[0]
+    fread(handle, buffer[:2]) or_return
+    atom.volume = (transmute([]i16be)buffer[:2])[0]
+    buffer2 := [36]u8{}
+    fread(handle, buffer2[:]) or_return
+    atom.matrixx = transmute([9]i32be)buffer2
+    fread(handle, buffer[:4]) or_return
+    atom.width = (transmute([]u32be)buffer[:4])[0]
+    fread(handle, buffer[:4]) or_return
+    atom.height = (transmute([]u32be)buffer[:4])[0]
+    return atom, nil
+}
 
 deserialize_tkhd :: proc(data: []byte) -> (tkhd: Tkhd, acc: u64){
     fullbox, fullbox_size := deserialize_fullbox(data[acc:])
@@ -60,7 +116,7 @@ deserialize_tkhd :: proc(data: []byte) -> (tkhd: Tkhd, acc: u64){
 
     tkhd.layer = (^i16be)(&data[acc])^
     acc += size_of(i16be)
-    
+
     tkhd.alternate_group = (^i16be)(&data[acc])^
     acc += size_of(i16be)
 

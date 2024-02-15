@@ -1,6 +1,8 @@
 package mp4
 
 import "core:slice"
+import "core:os"
+import "core:log"
 
 // MovieHeaderBox
 Mvhd :: struct {  // moov -> mvhd
@@ -21,6 +23,56 @@ Mvhd :: struct {  // moov -> mvhd
     next_track_ID: u32be,
 }
 
+
+MvhdV2 :: struct {  // moov -> mvhd
+    box:                    BoxV2,
+    creation_time:      u64be,
+    modification_time:  u64be,
+    timescale:          u32be,
+    duration:           u64be,
+    rate:               i32be,
+    volume:             i16be,
+    matrixx: [9]i32be,
+    next_track_ID: u32be,
+}
+
+read_mvhd :: proc(handle: os.Handle, id: int = 1) -> (atom: MvhdV2, err: FileError) {
+    box := select_box(handle, "mvhd", id) or_return
+    atom.box = box
+    total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [8]u8{}
+    if box.version == 1 {
+        fread(handle, buffer[:]) or_return
+        atom.creation_time = transmute(u64be)buffer
+        fread(handle, buffer[:]) or_return
+        atom.modification_time = transmute(u64be)buffer
+        fread(handle, buffer[:4]) or_return
+        atom.timescale = (transmute([]u32be)buffer[:4])[0]
+        fread(handle, buffer[:]) or_return
+        atom.duration = transmute(u64be)buffer
+    }else{
+        fread(handle, buffer[:4]) or_return
+        atom.creation_time = u64be((transmute([]u32be)buffer[:4])[0])
+        fread(handle, buffer[:4]) or_return
+        atom.modification_time = u64be((transmute([]u32be)buffer[:4])[0])
+        fread(handle, buffer[:4]) or_return
+        atom.timescale = (transmute([]u32be)buffer[:4])[0]
+        fread(handle, buffer[:4]) or_return
+        atom.duration = u64be((transmute([]u32be)buffer[:4])[0])
+    }
+    fread(handle, buffer[:4]) or_return
+    atom.rate = (transmute([]i32be)buffer[:4])[0]
+    fread(handle, buffer[:2]) or_return
+    atom.volume = (transmute([]i16be)buffer[:2])[0]
+    fseek(handle, 10, os.SEEK_CUR)
+    buffer2 := [36]u8{}
+    fread(handle, buffer2[:]) or_return
+    atom.matrixx = transmute([9]i32be)buffer2
+    fseek(handle, 24, os.SEEK_CUR)
+    fread(handle, buffer[:4]) or_return
+    atom.next_track_ID = (transmute([]u32be)buffer[:4])[0]
+    return atom, nil
+}
 
 deserialize_mvhd :: proc(data: []byte) -> (mvhd: Mvhd, acc: u64){
     fullbox, fullbox_size := deserialize_fullbox(data[acc:])

@@ -3,7 +3,6 @@ package mp4
 import "core:slice"
 import "core:os"
 import "core:strings"
-import "core:fmt"
 
 // MediaHeaderBox
 Mdhd :: struct {
@@ -33,7 +32,7 @@ MdhdV2 :: struct {
 }
 
 read_mdhd :: proc(handle: os.Handle, id: int = 1) -> (atom: MdhdV2, err: FileError) {
-    box := select_box(handle, "mdhd") or_return
+    box := select_box(handle, "mdhd", id) or_return
     atom.box = box
     total_seek := fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [8]u8{}
@@ -60,7 +59,6 @@ read_mdhd :: proc(handle: os.Handle, id: int = 1) -> (atom: MdhdV2, err: FileErr
     // TODO: can't get language
     language_b := [3]u8{}
     temp := (transmute([]u16be)buffer[:2])[0]
-    fmt.printf("%16b\n", temp)
     language_b[0] = u8((temp >> 10) & 0b00000000_00011111)
     language_b[1] = u8((temp >> 5) & 0b00000000_00011111)
     language_b[2] = u8(temp & 0b00000000_00011111)
