@@ -40,7 +40,6 @@ get_segment_first_sampleV2 :: proc(stts: SttsV2, timescale: u32be, segment_numbe
                 //sample_number = sample_number_begin + 1
                 sample_number = sample_count_cum + reamain_sample_time
                 sample_duration = stts.sample_delta
-                fmt.println("sample_number : ", sample_number)
                 return sample_number, sample_duration
             }
             sample_count_cum += sample_count
@@ -63,6 +62,46 @@ get_sample_durationV2 :: proc(stts: SttsV2, sample_number: u32be) -> (sample_dur
 	}
 	return sample_duration
 }
+get_sample_presentation_offsetV2 :: proc(ctts: CttsV2, sample_number: u32be) -> (presentation_offset: u32be){
+	sample_sum: u32be = 1
+	if(ctts.entry_count > 0){
+		for entry in ctts.entries {
+			if sample_sum + entry.sample_count >  sample_number {
+				presentation_offset = entry.sample_offset
+				break
+			}
+			sample_sum += entry.sample_count
+		}
+	}
+	return presentation_offset
+}
+
+get_sample_sizeV2 :: proc(stsz: StszV2, sample_number: u32be) -> (sample_size: u32be) {
+	if stsz.sample_size > 0 {
+		sample_size = stsz.sample_size
+	} else {
+		if stsz.sample_count > 0 {
+			sample_size = stsz.entries[sample_number - 1]
+		}
+		//else {
+		//	if stz2.sample_count > 0 {
+		//		samples_per_entry:u32be = 0
+		//		switch stz2.field_size {
+		//		case 4:
+		//			samples_per_entry = 8
+		//		case 8:
+		//			samples_per_entry = 4
+		//		case 16:
+		//			samples_per_entry = 2
+		//		}
+		//		index := sample_number / samples_per_entry
+		//		offset := ((sample_number % samples_per_entry) - 1) * samples_per_entry
+		//		sample_size = u64(stz2.entries_sizes[index - 1] << u64(offset))
+		//	}
+		//}
+	}
+	return sample_size
+}
 
 write_fragment :: proc(handle: os.Handle) -> FileError {
     fragment_number: u32be = 1
@@ -81,7 +120,6 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     styp.box.type = "styp"
 
 
-    log.debug(vide_id, soun_id)
 
     mvhd := read_mvhd(handle, vide_id) or_return
 
@@ -93,6 +131,8 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     hdlr_soun := read_hdlr(handle, soun_id) or_return
     stts_vide := read_stts(handle, vide_id) or_return
     stts_soun := read_stts(handle, soun_id) or_return
+    //ctts_vide := read_ctts(handle, vide_id) or_return
+    //ctts_soun := read_ctts(handle, soun_id) or_return
     stsc_vide := read_stsc(handle, vide_id) or_return
     stsc_soun := read_stsc(handle, soun_id) or_return
     co64_vide := read_co64(handle, vide_id) or_return
@@ -104,8 +144,10 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     stsz_soun := read_stsz(handle, soun_id) or_return
 
 
-    sample_number_begin, sample_duration_begin := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number, fragment_duration)
-    sample_number_end, sample_duration_end := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number + 1, fragment_duration)
+    sample_number_begin_vide, sample_duration_begin_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number, fragment_duration)
+    sample_number_end_vide, sample_duration_end_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number + 1, fragment_duration)
+    sample_number_begin_soun, sample_duration_begin_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number, fragment_duration)
+    sample_number_end_soun, sample_duration_end_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number + 1, fragment_duration)
     //trun
     trun_vide := TrunV2{}
     trun_vide.box.type = "trun"
@@ -114,27 +156,134 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     trun_vide.box.is_large_size = false
     trun_vide.box.version = 0
     trun_vide.box.header_size = 12
-    trun_vide.sample_count = sample_number_end - sample_number_begin
+    trun_vide.sample_count = sample_number_end_vide - sample_number_begin_vide
     trun_vide.data_offset_present = true
-    trun_vide.first_sample_flags_present = false
     trun_vide.data_offset = 0 // TODO
+    trun_vide.first_sample_flags_present = false
     trun_vide.sample_duration_present = true
     trun_vide.sample_size_present = true
-    trun_vide.sample_flags_present = true
-    trun_vide.sample_composition_time_offset_present = true
-    trun_vide.box.body_size = u64be(8 + (trun_vide.sample_count * 16))
+    trun_vide.sample_flags_present = false
+    trun_vide.sample_composition_time_offset_present = false
+    trun_vide.box.body_size = u64be(8 + (trun_vide.sample_count * 8))
     trun_vide.box.total_size = trun_vide.box.header_size + trun_vide.box.body_size
     trun_vide.samples = make([]TrackRunBoxSample, trun_vide.sample_count)
-    for i in 0..<trun_vide.sample_count {
-        trun_vide.samples[i].sample_duration = get_sample_durationV2(stts_vide, i + 1)
+	j := 0
+    for i in sample_number_begin_vide..<sample_number_end_vide {
+        trun_vide.samples[j].sample_duration = get_sample_durationV2(stts_vide, i)
+        //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
+        trun_vide.samples[j].sample_size = get_sample_sizeV2(stsz_vide, i)
+		j += 1
     }
-    trun_vide.box.body_size = 0 // TODO
-    trun_vide.box.total_size = 0 // TODO
+
+    trun_soun := TrunV2{}
+    trun_soun.box.type = "trun"
+    trun_soun.box.is_fullbox = true
+    trun_soun.box.is_container = false
+    trun_soun.box.is_large_size = false
+    trun_soun.box.version = 0
+    trun_soun.box.header_size = 12
+    trun_soun.sample_count = sample_number_end_soun - sample_number_begin_soun
+    trun_soun.data_offset_present = true
+    trun_soun.data_offset = 0 // TODO
+    trun_soun.first_sample_flags_present = false
+    trun_soun.sample_duration_present = true
+    trun_soun.sample_size_present = true
+    trun_soun.sample_flags_present = false
+    trun_soun.sample_composition_time_offset_present = false
+    trun_soun.box.body_size = u64be(8 + (trun_soun.sample_count * 8))
+    trun_soun.box.total_size = trun_soun.box.header_size + trun_soun.box.body_size
+    trun_soun.samples = make([]TrackRunBoxSample, trun_soun.sample_count)
+	j = 0
+    for i in sample_number_begin_soun..<sample_number_end_soun {
+        trun_soun.samples[j].sample_duration = get_sample_durationV2(stts_soun, i)
+        //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
+        trun_soun.samples[j].sample_size = get_sample_sizeV2(stsz_soun, i)
+		j += 1
+    }
     // tfdt
+	tfdt_vide := TfdtV2{}
+	tfdt_vide.box.type = "tfdt"
+    tfdt_vide.box.is_fullbox = true
+    tfdt_vide.box.is_container = false
+    tfdt_vide.box.is_large_size = false
+    tfdt_vide.box.version = 1
+    tfdt_vide.box.header_size = 12
+    tfdt_vide.box.body_size = 8
+	tfdt_vide.baseMediaDecodeTime = u64be(fragment_duration * f64(mdhd_vide.timescale) * f64(fragment_number))
+    tfdt_vide.box.total_size = tfdt_vide.box.header_size + tfdt_vide.box.body_size
+
+	tfdt_soun := TfdtV2{}
+	tfdt_soun.box.type = "tfdt"
+    tfdt_soun.box.is_fullbox = true
+    tfdt_soun.box.is_container = false
+    tfdt_soun.box.is_large_size = false
+    tfdt_soun.box.version = 1
+    tfdt_soun.box.header_size = 12
+    tfdt_soun.box.body_size = 8
+	tfdt_soun.baseMediaDecodeTime = u64be(fragment_duration * f64(mdhd_soun.timescale) * f64(fragment_number))
+    tfdt_soun.box.total_size = tfdt_soun.box.header_size + tfdt_soun.box.body_size
     // tfhd
+	tfhd_vide := TfhdV2{}
+	tfhd_vide.box.type = "tfhd"
+    tfhd_vide.box.is_fullbox = true
+    tfhd_vide.box.is_container = false
+    tfhd_vide.box.is_large_size = false
+    tfhd_vide.box.version = 0
+    tfhd_vide.box.header_size = 12
+	tfhd_vide.track_ID = tkhd_vide.track_ID
+	tfhd_vide.default_sample_duration_present = true
+	tfhd_vide.default_sample_size_present = true
+	tfhd_vide.default_sample_duration = sample_duration_begin_vide
+	tfhd_vide.default_sample_size = get_sample_sizeV2(stsz_vide, sample_duration_begin_vide)
+    tfhd_vide.box.body_size = 12
+    tfhd_vide.box.total_size = tfhd_vide.box.header_size + tfhd_vide.box.body_size
+
+	tfhd_soun := TfhdV2{}
+	tfhd_soun.box.type = "tfhd"
+    tfhd_soun.box.is_fullbox = true
+    tfhd_soun.box.is_container = false
+    tfhd_soun.box.is_large_size = false
+    tfhd_soun.box.version = 0
+    tfhd_soun.box.header_size = 12
+	tfhd_soun.track_ID = tkhd_soun.track_ID
+	tfhd_soun.default_sample_duration_present = true
+	tfhd_soun.default_sample_size_present = true
+	tfhd_soun.default_sample_duration = sample_duration_begin_soun
+	tfhd_soun.default_sample_size = get_sample_sizeV2(stsz_soun, sample_duration_begin_soun)
+    tfhd_soun.box.body_size = 12
+    tfhd_soun.box.total_size = tfhd_soun.box.header_size + tfhd_soun.box.body_size
     // traf
+	traf_vide := BoxV2{}
+	traf_vide.type = "traf"
+    traf_vide.is_container = true
+    traf_vide.header_size = 8
+    traf_vide.body_size = tfhd_vide.box.total_size + tfdt_vide.box.total_size + trun_vide.box.total_size
+    traf_vide.total_size = traf_vide.header_size + traf_vide.body_size
+
+	traf_soun := BoxV2{}
+	traf_soun.type = "traf"
+    traf_soun.is_container = true
+    traf_soun.header_size = 8
+    traf_soun.body_size = tfhd_soun.box.total_size + tfdt_soun.box.total_size + trun_soun.box.total_size
+    traf_soun.total_size = traf_soun.header_size + traf_soun.body_size
     // mfhd
+	mfhd := MfhdV2{}
+	mfhd.box.type = "mfhd"
+    mfhd.box.is_fullbox = true
+    mfhd.box.is_container = false
+    mfhd.box.is_large_size = false
+    mfhd.box.version = 0
+    mfhd.box.header_size = 12
+    mfhd.box.body_size = 4
+    mfhd.sequence_number = fragment_number
+    mfhd.box.total_size = mfhd.box.header_size + mfhd.box.body_size
     // moof
+	moof := BoxV2{}
+	moof.type = "moof"
+    moof.is_container = true
+    moof.header_size = 8
+    moof.body_size = mfhd.box.total_size + traf_vide.total_size + traf_soun.total_size
+    moof.total_size = moof.header_size + moof.body_size
     // sidx
     sidx_vide := SidxV2{}
     sidx_vide.box.type = "sidx"
@@ -186,7 +335,16 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     write_ftyp(output, styp) or_return
     write_sidx(output, sidx_vide) or_return
     write_sidx(output, sidx_soun) or_return
+	write_box(output, moof)
+	write_mfhd(output, mfhd)
+	write_box(output, traf_vide)
+	write_tfhd(output, tfhd_vide)
+	write_tfdt(output, tfdt_vide)
     write_trun(output, trun_vide) or_return
+	write_box(output, traf_soun)
+	write_tfhd(output, tfhd_soun)
+	write_tfdt(output, tfdt_soun)
+    write_trun(output, trun_soun) or_return
 
     return nil
 }

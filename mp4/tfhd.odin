@@ -80,53 +80,37 @@ read_tfhd :: proc(handle: os.Handle, id: int = 1) -> (atom: TfhdV2, error: FileE
     return atom, nil
 }
 
-write_tfhd :: proc(handle: os.Handle, atom: TfhdV2, is_large_size: bool = false) -> FileError {
+write_tfhd :: proc(handle: os.Handle, atom: TfhdV2) -> FileError {
     data := bytes.Buffer{}
 	atom_cpy := atom
-	atom_cpy.box.is_container = false
-	atom_cpy.box.version = 0
-	atom_cpy.box.is_fullbox = true
-	atom_cpy.box.is_large_size = is_large_size
-	atom_cpy.box.total_size = 0
-	atom_cpy.box.header_size = 12
-	atom_cpy.box.body_size = 4
-    if is_large_size {
-        atom_cpy.box.header_size += 8
-    }
     bytes.buffer_init(&data, []u8{})
     bytes.buffer_write_ptr(&data, &atom_cpy.track_ID, 4)
 
     if atom_cpy.base_data_offset_present {
         atom_cpy.box.flags[2] |= u8(BASE_DATA_OFFSET_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.base_data_offset, 8)
-	    atom_cpy.box.body_size += 8
     }
     if atom_cpy.sample_description_index_present {
         atom_cpy.box.flags[2] |= u8(SAMPLE_DESCRIPTION_INDEX_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.sample_description_index, 4)
-	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_duration_present {
         atom_cpy.box.flags[2] |= u8(TFHD_DEFAULT_SAMPLE_DURATION_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_duration, 4)
-	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_size_present {
         atom_cpy.box.flags[2] |= u8(DEFAULT_SAMPLE_SIZE_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_size, 4)
-	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.default_sample_flags_present {
         atom_cpy.box.flags[2] |= u8(DEFAULT_SAMPLE_FLAGS_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.default_sample_flags, 4)
-	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.duration_is_empty {
         atom_cpy.box.flags[0] |= u8(DURATION_IS_EMPTY >> 16)
         // TODO: ???
     }
 
-    atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size
     write_box(handle, atom_cpy.box) or_return
     total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
     bytes.buffer_destroy(&data)

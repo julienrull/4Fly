@@ -89,56 +89,38 @@ read_trun :: proc(handle: os.Handle, id: int = 1) -> (atom: TrunV2, error: FileE
     return atom, nil
 }
 
-write_trun :: proc(handle: os.Handle, atom: TrunV2, is_large_size: bool = false) -> FileError {
+write_trun :: proc(handle: os.Handle, atom: TrunV2) -> FileError {
     data := bytes.Buffer{}
 	atom_cpy := atom
-	atom_cpy.box.is_container = false
-	atom_cpy.box.version = 0
-	atom_cpy.box.is_fullbox = true
-	atom_cpy.box.is_large_size = is_large_size
-	atom_cpy.box.total_size = 0
-	atom_cpy.box.header_size = 12
-	atom_cpy.box.body_size = 4
-    atom_cpy.box.flags = [3]u8{}
-    if is_large_size {
-        atom_cpy.box.header_size += 8
-    }
     bytes.buffer_init(&data, []u8{})
     bytes.buffer_write_ptr(&data, &atom_cpy.sample_count, 4)
     if atom_cpy.data_offset_present {
         atom_cpy.box.flags[2] |= u8(DATA_OFFSET_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.data_offset, 4)
-	    atom_cpy.box.body_size += 4
     }
     if atom_cpy.first_sample_flags_present {
         atom_cpy.box.flags[2] |= u8(FIRST_SAMPLE_FLAGS_PRESENT)
         bytes.buffer_write_ptr(&data, &atom_cpy.first_sample_flags, 4)
-	    atom_cpy.box.body_size += 4
     }
     for i in 0..<atom_cpy.sample_count {
         if atom_cpy.sample_duration_present {
             atom_cpy.box.flags[1] |= u8(SAMPLE_DURATION_PRESENT >> 8)
             bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_duration, 4)
-            atom_cpy.box.body_size += 4
         }
         if atom_cpy.sample_size_present {
             atom_cpy.box.flags[1] |= u8(SAMPLE_SIZE_PRESENT >> 8)
             bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_size, 4)
-            atom_cpy.box.body_size += 4
         }
         if atom_cpy.sample_flags_present {
             atom_cpy.box.flags[1] |= u8(SAMPLE_FLAGS_PRESENT >> 8)
             bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_flags, 4)
-            atom_cpy.box.body_size += 4
         }
         if atom_cpy.sample_composition_time_offset_present {
             atom_cpy.box.flags[1] |= u8(SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT >> 8)
             bytes.buffer_write_ptr(&data, &atom_cpy.samples[i].sample_composition_time_offset, 4)
-            atom_cpy.box.body_size += 4
         }
     }
     //atom_cpy.box.flags[0] = 0
-    atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size
     write_box(handle, atom_cpy.box) or_return
     total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
     bytes.buffer_destroy(&data)

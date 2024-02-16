@@ -27,19 +27,9 @@ read_mfhd :: proc(handle: os.Handle) -> (atom: MfhdV2, error: FileError) {
     return atom, nil
 }
 
-write_mfhd :: proc(handle: os.Handle, atom: MfhdV2, is_large_size: bool = false) -> FileError {
+write_mfhd :: proc(handle: os.Handle, atom: MfhdV2) -> FileError {
     data := bytes.Buffer{}
 	atom_cpy := atom
-	atom_cpy.box.is_container = false
-	atom_cpy.box.version = 0
-	atom_cpy.box.is_fullbox = true
-	atom_cpy.box.is_large_size = is_large_size
-	atom_cpy.box.total_size = 0
-	atom_cpy.box.header_size = 12
-	atom_cpy.box.body_size = 4
-    if is_large_size {
-        atom_cpy.box.header_size += 8
-    }
     bytes.buffer_init(&data, []u8{})
     bytes.buffer_write_ptr(&data, &atom_cpy.sequence_number, 4)
     atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size

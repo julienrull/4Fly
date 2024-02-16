@@ -1,8 +1,9 @@
 package mp4
 
-import "core:fmt"
+import "core:log"
 import "core:mem"
 import "core:slice"
+import "core:os"
 
 // CompositionOffsetBox
 Ctts :: struct {
@@ -15,6 +16,27 @@ Ctts :: struct {
 CompositionOffsetBoxEntries :: struct {
 	sample_count:  u32be,
 	sample_offset: u32be,
+}
+
+CttsV2 :: struct {
+	// stbl -> ctts
+	box:		 BoxV2,
+	entry_count: u32be,
+	entries:     []CompositionOffsetBoxEntries,
+}
+
+read_ctts :: proc(handle: os.Handle, id: int = 1) -> (atom: CttsV2, err: FileError) {
+    box := select_box(handle, "ctts", id) or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    log.debug("???")
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 8)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]CompositionOffsetBoxEntries)entries_b)[:atom.entry_count]
+    return atom, nil
 }
 
 deserialize_ctts :: proc(data: []byte) -> (ctts: Ctts, acc: u64) {

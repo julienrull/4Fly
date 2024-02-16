@@ -100,15 +100,15 @@ main :: proc() {
 		//atom, read_err := mp4.read_tfhd(handle)
 		//write_err := mp4.write_tfhd(handle2, atom)
 
-		dump_error := mp4.dump(handle)
-		if dump_error != nil {
-		    mp4.handle_dump_error(dump_error)
-		}
-
-		//err_frag := mp4.write_fragment(handle)
-		//if err_frag != nil {
-		//	mp4.handle_file_error(err_frag)
+		//dump_error := mp4.dump(handle)
+		//if dump_error != nil {
+		//    mp4.handle_dump_error(dump_error)
 		//}
+
+		err_frag := mp4.write_fragment(handle)
+		if err_frag != nil {
+			mp4.handle_file_error(err_frag)
+		}
 	} else {
 		dir, file := filepath.split(path)
 		size_video := os.file_size_from_path(path)
