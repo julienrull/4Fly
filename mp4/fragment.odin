@@ -107,6 +107,8 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     fragment_number: u32be = 1
     fragment_duration := 3.7
     trak_count := 2
+    data_size_vide: u64be = 0
+    data_size_soun: u64be = 0
     // OUTPUT HANDLE
     output := fopen(fmt.tprintf("seg-%d.m4s", fragment_number), os.O_CREATE | os.O_RDWR) or_return
     defer os.close(output)
@@ -172,6 +174,7 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
         trun_vide.samples[j].sample_duration = get_sample_durationV2(stts_vide, i)
         //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
         trun_vide.samples[j].sample_size = get_sample_sizeV2(stsz_vide, i)
+		data_size_vide += u64be(trun_vide.samples[j].sample_size)
 		j += 1
     }
 
@@ -198,6 +201,7 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
         trun_soun.samples[j].sample_duration = get_sample_durationV2(stts_soun, i)
         //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
         trun_soun.samples[j].sample_size = get_sample_sizeV2(stsz_soun, i)
+		data_size_soun += u64be(trun_soun.samples[j].sample_size)
 		j += 1
     }
     // tfdt
@@ -331,7 +335,14 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     sidx_soun.items[0].SAP_delta_time = 0
     //mdat
 
-    // Writing
+	mdat := BoxV2{}
+	mdat.type = "mdat"
+    mdat.is_container = false
+    mdat.header_size = 8
+    mdat.body_size = data_size_vide + data_size_soun
+    mdat.total_size = mdat.header_size + mdat.body_size
+
+    // Writing boxes
     write_ftyp(output, styp) or_return
     write_sidx(output, sidx_vide) or_return
     write_sidx(output, sidx_soun) or_return
@@ -345,6 +356,122 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
 	write_tfhd(output, tfhd_soun)
 	write_tfdt(output, tfdt_soun)
     write_trun(output, trun_soun) or_return
+	write_box(output, mdat)
 
+	// writing data
+
+	for sample in sample_number_begin_vide..<sample_number_end_vide {
+		chunk_number, first_chunk_sample := sample_to_chunkV2(stsc_vide, sample)
+		sample_offset, sample_size : u64be = 0, 0
+		if stsc_vide.entry_count <= 1 {
+			chunk_number = sample
+		}
+		chunk_offset := get_chunk_offsetV2(chunk_number,  co64 = co64_vide)
+		if(first_chunk_sample == 0){// TODO: write the right condition
+			sample_offset = chunk_offset
+			sample_size = u64be(get_sample_sizeV2(stsz_vide, sample))
+		}else{
+			sample_offset, sample_size = get_sample_offsetV2(stsc_vide, stsz_vide, chunk_offset, first_chunk_sample, sample)
+		}
+		buf_size := sample_size
+		buffer := make([]u8, sample_size)
+		fread(handle, buffer)
+		fwrite(output, buffer)
+		//data := video_file_b[sample_offset : sample_offset + sample_size]
+		//mdat.data = slice.concatenate([][]byte{mdat.data,data})
+		delete(buffer)
+	}
+	for sample in sample_number_begin_soun..<sample_number_end_soun {
+		chunk_number, first_chunk_sample := sample_to_chunkV2(stsc_soun, sample)
+		sample_offset, sample_size : u64be = 0, 0
+		if stsc_soun.entry_count <= 1 {
+			chunk_number = sample
+		}
+		chunk_offset := get_chunk_offsetV2(chunk_number,  co64 = co64_soun)
+		if(first_chunk_sample == 0){// TODO: write the right condition
+			sample_offset = chunk_offset
+			sample_size = u64be(get_sample_sizeV2(stsz_soun, sample))
+		}else{
+			sample_offset, sample_size = get_sample_offsetV2(stsc_soun, stsz_soun, chunk_offset, first_chunk_sample, sample)
+		}
+		buf_size := sample_size
+		buffer := make([]u8, sample_size)
+		fread(handle, buffer)
+		fwrite(output, buffer)
+		//data := video_file_b[sample_offset : sample_offset + sample_size]
+		//mdat.data = slice.concatenate([][]byte{mdat.data,data})
+		delete(buffer)
+	}
     return nil
+}
+
+get_sample_offsetV2 :: proc(stsc: StscV2, stsz: StszV2, chunk_offset: u64be, first_chunk_sample: u32be, sample_number: u32be) -> (sample_offset: u64be,
+sample_size: u64be) {
+	sample_offset = chunk_offset
+	if stsc.entry_count > 1 {
+		for sample in first_chunk_sample..=sample_number {
+			if(sample == sample_number){
+				sample_size = u64be(get_sample_sizeV2(stsz, sample))
+			}else{
+				sample_offset += u64be(get_sample_sizeV2(stsz, sample))
+			}
+		}
+	}else{
+		sample_size = u64be(get_sample_sizeV2(stsz, sample_number))
+	}
+	return sample_offset, sample_size
+}
+
+get_chunk_offsetV2 :: proc(chunk_number: u32be, stco: StcoV2 = {}, co64: Co64V2 = {}) -> (chunk_offset: u64be) {
+	if co64.box.type == "co64" {
+		chunk_offset = u64be(co64.entries[chunk_number - 1])
+	}else if stco.box.type == "stco" {
+		chunk_offset = u64be(stco.entries[chunk_number - 1])
+	}else {
+		panic("ERROR: no chuck boxes (stco or co64) found.")
+		// TODO
+	}
+	return chunk_offset
+}
+
+sample_to_chunkV2 :: proc(stsc: StscV2, sample_number: u32be) -> (chunk_number: u32be, first_sample: u32be) {
+	chunk_number = 1
+	first_sample = 1
+	samples_sum: u32be = 1
+	//chunk_sum := 0
+
+	if(int(stsc.entry_count) > 1) {
+		for i := 0; i < int(stsc.entry_count); i += 1 {
+			// * Variables
+			entry := stsc.entries[i]
+			first_chunk := entry.first_chunk
+			samples_per_chunk := entry.samples_per_chunk
+			sample_desc_index := entry.sample_description_index
+			first_sample := samples_sum
+			chunk_count: u32be
+			if i == int(stsc.entry_count) - 1 {
+				chunk_count = 0
+				cn := (sample_number - samples_sum) + first_chunk
+				return cn, 0
+			}else {
+				chunk_count = stsc.entries[i + 1].first_chunk - first_chunk
+				next_first_sample := samples_sum + chunk_count * samples_per_chunk
+				// * Entry found
+				if next_first_sample > sample_number {
+					// * search sub chunk
+					for cn in first_chunk..<first_chunk + chunk_count{
+						samples_sum_next := samples_sum + samples_per_chunk
+						if samples_sum_next > sample_number{
+							return cn, samples_sum
+						}
+						samples_sum = samples_sum_next
+					}
+				}
+				// * MAJ
+				samples_sum = next_first_sample
+			}
+		}
+
+	}
+		return chunk_number, first_sample
 }
