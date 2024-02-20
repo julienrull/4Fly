@@ -816,27 +816,57 @@ create_init :: proc(handle: os.Handle) -> FileError {
     defer os.close(output)
     fseek(handle, 0, os.SEEK_SET) or_return
     next := next_box(handle, nil) or_return
-    trak_count := 2
-    trak_sum := 0
+    trak_count      :u64be = 2
+    trak_sum        :u64be = 0
     for next != nil {
         atom := get_item_value(next)
-        log.debug(atom.type)
+        if atom.type == "moov" {
+            atom.total_size += 72
+            atom.body_size += 72
+        }else if trak_sum == trak_count{
+            log.debug("???")
+            trak_sum = 0
+            mvex := BoxV2{}
+            mvex.type = "mvex"
+            mvex.is_container = true
+            mvex.header_size = 8
+            mvex.body_size = 64
+            mvex.total_size = mvex.header_size + mvex.body_size
+            write_box(output, mvex) or_return
+            trex_vide := TrexV2{}
+            trex_vide.box.type = "trex"
+            trex_vide.box.is_fullbox = true
+            trex_vide.box.header_size = 12
+            trex_vide.box.body_size = 20
+            trex_vide.box.total_size = trex_vide.box.header_size + trex_vide.box.body_size
+            trex_vide.track_ID = 1
+            trex_soun := TrexV2{}
+            trex_soun.box.type = "trex"
+            trex_soun.box.is_fullbox = true
+            trex_soun.box.header_size = 12
+            trex_soun.box.body_size = 20
+            trex_soun.box.total_size = trex_soun.box.header_size + trex_soun.box.body_size
+            trex_soun.track_ID = 2
+            write_trex(output, trex_vide) or_return
+            write_trex(output, trex_soun) or_return
+        }
         if atom.type == "mdat" {
             fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
-        }else if atom.type == "trak"{
-            trak_sum += 1
-            if trak_sum == trak_count {
-
-            }
-        }else {
-            if atom.is_container {
+        } else{
+            if atom.is_container && atom.type != "trak" {
                 write_box(output, atom) or_return
-            }else {
+            }
+            if !atom.is_container || atom.type == "trak" {
                 buffer := make([]u8, atom.total_size)
                 readed := fread(handle, buffer[:]) or_return
                 fseek(handle, i64(-readed), os.SEEK_CUR)
                 fwrite(output, buffer[:]) or_return
                 delete(buffer)
+                if atom.type == "trak" {
+                    atom.is_container = false
+                    next = atom
+                    trak_sum += 1
+                }
             }
         }
         next = next_box(handle, next) or_return
