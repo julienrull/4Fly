@@ -35,9 +35,10 @@ get_cmd_args :: proc(
 	cmd = ""
 	for arg in args {
 		if arg[:1] != "-" && cmd_count == 0 {
-			if slice.contains(CMDS, arg) {
-				path = arg
-			}
+			//if slice.contains(CMDS, arg) {
+			//	path = arg
+			//}
+			path = arg
 			cmd = arg
 			cmd_count += 1
 		} else if cmd == "dump" && len(arg) > 1 {
@@ -90,113 +91,25 @@ main :: proc() {
 	// # PROGRAM ARGS
 	args := os.args[1:]
 	cmd, path, time, type, entity := get_cmd_args(args)
+	handle, err := mp4.fopen(path)
+	defer os.close(handle)
 	// ###
 	if cmd == "dump" {
-		handle, err := mp4.fopen(path)
-		defer os.close(handle)
-		//handle2, err2 := mp4.fopen("seg.m4s", os.O_CREATE | os.O_RDWR)
-		//defer os.close(handle)
-
-		//atom, read_err := mp4.read_tfhd(handle)
-		//write_err := mp4.write_tfhd(handle2, atom)
-
-		//dump_error := mp4.dump(handle)
-		//if dump_error != nil {
-		//    mp4.handle_dump_error(dump_error)
-		//}
-
-		err_frag := mp4.write_fragment(handle)
-		if err_frag != nil {
-			mp4.handle_file_error(err_frag)
+		dump_error := mp4.dump(handle)
+		if dump_error != nil {
+		    mp4.handle_dump_error(dump_error)
 		}
 	} else {
-		dir, file := filepath.split(path)
-		size_video := os.file_size_from_path(path)
-		f_vid, f_vid_err := os.open(path)
-		if f_vid_err != 0 {
-			return
-		}
-		defer os.close(f_vid)
-		vid, vide_mem_err := mem.alloc_bytes((int)(size_video))
-		defer delete(vid)
-		os.read(f_vid, vid)
-		mp4_box, mp4_size := mp4.deserialize_mp4(vid, u64(size_video))
-		segment_count := int(
-			(f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale)) / time,
-		)
-		last_segment_duration :=
-			(f64(mp4_box.moov.mvhd.duration) / f64(mp4_box.moov.mvhd.timescale)) -
-			time * f64(segment_count)
 		if entity == "all" {
-			for i in 0 ..= segment_count {
-				//for i in 0..=20 {
-				// FRAGMENT
-				segment_number := i
-				segment := mp4.Segment{}
-				if segment_number != segment_count {
-					segment = mp4.new_segment(&mp4_box, segment_number, time)
-				} else {
-					segment = mp4.new_segment(&mp4_box, segment_number, last_segment_duration)
-				}
-				// * STYP
-				seg_box := mp4.Mp4{}
-				seg_box.styp = mp4.create_styp(segment)
-				// * MOOF
-				seg_box.moof = mp4.create_moof(segment)
-				seg_box.mdat = mp4.create_mdat(segment, vid)
-				// * SIDX
-				sidxs := mp4.create_sidxs(segment, seg_box.moof.box.size + seg_box.mdat.box.size)
-				clear(&seg_box.sidxs)
-				for sidx in sidxs {
-					append(&seg_box.sidxs, sidx)
-				}
-				new_seg := mp4.serialize_mp4(seg_box)
-				handle, err := os.open(fmt.tprintf("%sseg-%d.m4s", dir, i), os.O_CREATE)
-				os.write(handle, new_seg)
-				os.close(handle)
-			}
-			mp4.create_manifest(segment_count, time, last_segment_duration, dir)
-			init := mp4.create_init(mp4_box)
-			init_b := mp4.serialize_mp4(init)
-			init_handle, init_err := os.open(fmt.tprintf("%sinit.mp4", dir), os.O_CREATE)
-			os.write(init_handle, init_b)
-			os.close(init_handle)
 		} else if entity == "m3u8" {
-			mp4.create_manifest(segment_count, time, last_segment_duration, dir)
+			mp4.create_manifest(handle, time)
 		} else if entity == "init" {
-			init := mp4.create_init(mp4_box)
-			init_b := mp4.serialize_mp4(init)
-			init_handle, init_err := os.open(fmt.tprintf("%sinit.mp4", dir), os.O_CREATE)
-			os.write(init_handle, init_b)
-			os.close(init_handle)
+			mp4.create_init(handle)
 		} else {
-			// FRAGMENT
-			segment_number := strconv.atoi(entity)
-			segment := mp4.Segment{}
-			if segment_number != segment_count {
-				segment = mp4.new_segment(&mp4_box, segment_number, time)
-			} else {
-				segment = mp4.new_segment(&mp4_box, segment_number, last_segment_duration)
+			err_frag := mp4.write_fragment(handle, u32be(strconv.atoi(entity)), time)
+			if err_frag != nil {
+				mp4.handle_file_error(err_frag)
 			}
-			// * STYP
-			seg_box := mp4.Mp4{}
-			seg_box.styp = mp4.create_styp(segment)
-			// * MOOF
-			seg_box.moof = mp4.create_moof(segment)
-			seg_box.mdat = mp4.create_mdat(segment, vid)
-			// * SIDX
-			sidxs := mp4.create_sidxs(segment, seg_box.moof.box.size + seg_box.mdat.box.size)
-			clear(&seg_box.sidxs)
-			for sidx in sidxs {
-				append(&seg_box.sidxs, sidx)
-			}
-			new_seg := mp4.serialize_mp4(seg_box)
-			handle, err := os.open(
-				fmt.tprintf("%sseg-%d.m4s", dir, strconv.atoi(entity)),
-				os.O_CREATE,
-			)
-			os.write(handle, new_seg)
-			os.close(handle)
 		}
 	}
 	//fmt.println("END")

@@ -715,7 +715,7 @@ create_mdat :: proc(segment: Segment, video_file_b: []byte) -> (mdat: Mdat) {
 
 MVEX_TYPE :: 0x6D766578
 TREX_TYPE :: 0x74726578
-create_init :: proc(mp4: Mp4) ->(init: Mp4){
+create_init_old :: proc(mp4: Mp4) ->(init: Mp4){
 	init = mp4
 	// TODO: reset stbl children
     new_traks := make([dynamic]Trak, 0, 2)
@@ -811,15 +811,46 @@ create_init :: proc(mp4: Mp4) ->(init: Mp4){
 	return init
 }
 
-create_manifest :: proc(segment_count: int, segment_duration: f64, last_segment_duration: f64, dir: string){
-        handle, err := os.open(fmt.tprintf("%smedia.m3u8", dir), os.O_CREATE)
-        defer os.close(handle)
+create_init :: proc(handle: os.Handle) -> FileError {
+    output := fopen("init.mp4", os.O_CREATE | os.O_RDWR) or_return
+    defer os.close(output)
+    fseek(handle, 0, os.SEEK_SET) or_return
+    next := next_box(handle, nil) or_return
+    trak_count := 2
+    trak_sum := 0
+    for next != nil {
+        atom := get_item_value(next)
+        log.debug(atom.type)
+        if atom.type == "mdat" {
+            fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
+        }else if atom.type == "trak"{
+            trak_sum += 1
+            if trak_sum == trak_count {
 
-        //os.flush(handle)
+            }
+        }else {
+            if atom.is_container {
+                write_box(output, atom) or_return
+            }else {
+                buffer := make([]u8, atom.total_size)
+                readed := fread(handle, buffer[:]) or_return
+                fseek(handle, i64(-readed), os.SEEK_CUR)
+                fwrite(output, buffer[:]) or_return
+                delete(buffer)
+            }
+        }
+        next = next_box(handle, next) or_return
+    }
+    return nil
+}
 
+create_manifest :: proc(handle: os.Handle, fragment_duration: f64) ->  FileError {
         sb := &strings.Builder{}
         sb = strings.builder_init_len(sb, 0)
 
+        mvhd := read_mvhd(handle) or_return
+        fragment_count := int(f64(mvhd.duration) / 1000 / fragment_duration)
+        last_fragment_duration := f64(mvhd.duration) / 1000 - f64(fragment_count) * fragment_duration
         //
         //#EXTINF:6.006000,
         //seg-0.m4s
@@ -828,21 +859,23 @@ create_manifest :: proc(segment_count: int, segment_duration: f64, last_segment_
 
         fmt.sbprint(sb, "#EXTM3U\n")
         fmt.sbprint(sb, "#EXT-X-VERSION:7\n")
-        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%v\n", segment_duration)
+        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%v\n", fragment_duration)
         fmt.sbprint(sb, "#EXT-X-MEDIA-SEQUENCE:0\n")
         fmt.sbprint(sb, "#EXT-X-PLAYLIST-TYPE:VOD\n")
         fmt.sbprint(sb, "#EXT-X-MAP:URI=\"init.mp4\"\n")
 
-        for i in 0..=segment_count {
-            if i != segment_count {
-                fmt.sbprintf(sb, "#EXTINF:%v,\n", segment_duration)
+        for i in 0..=fragment_count {
+            if i != fragment_count {
+                fmt.sbprintf(sb, "#EXTINF:%v,\n", fragment_duration)
             }else{
-                fmt.sbprintf(sb, "#EXTINF:%v,\n", last_segment_duration)
+                fmt.sbprintf(sb, "#EXTINF:%v,\n", last_fragment_duration)
             }
             fmt.sbprintf(sb, "seg-%d.m4s\n", i)
         }
         fmt.sbprint(sb, "#EXT-X-ENDLIST")
-
-        os.write(handle, sb.buf[:])
+        output := fopen("media.m3u8", os.O_CREATE | os.O_RDWR) or_return
+        defer os.close(output)
+        fwrite(output, sb.buf[:]) or_return
         strings.builder_destroy(sb)
+        return nil
 }

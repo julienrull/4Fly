@@ -31,7 +31,6 @@ read_ctts :: proc(handle: os.Handle, id: int = 1) -> (atom: CttsV2, err: FileErr
     fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
     buffer := [4]u8{}
     fread(handle, buffer[:]) or_return
-    log.debug("???")
     atom.entry_count = transmute(u32be)buffer
 	entries_b := make([]u8, atom.entry_count * 8)
     fread(handle, entries_b[:]) or_return

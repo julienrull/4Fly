@@ -103,25 +103,28 @@ get_sample_sizeV2 :: proc(stsz: StszV2, sample_number: u32be) -> (sample_size: u
 	return sample_size
 }
 
-write_fragment :: proc(handle: os.Handle) -> FileError {
-    fragment_number: u32be = 1
-    fragment_duration := 3.7
+write_fragment :: proc(handle: os.Handle, number: u32be, duration: f64) -> FileError {
+    fragment_number: u32be = number
+    fragment_duration := duration
     trak_count := 2
     data_size_vide: u64be = 0
     data_size_soun: u64be = 0
     // OUTPUT HANDLE
-    output := fopen(fmt.tprintf("seg-%d.m4s", fragment_number), os.O_CREATE | os.O_RDWR) or_return
+    output := fopen(fmt.tprintf("seg-%d.m4s", fragment_number - 1), os.O_CREATE | os.O_RDWR) or_return
     defer os.close(output)
     // READ
     vide_id := get_trak_number(handle, "vide") or_return
     soun_id := get_trak_number(handle, "soun") or_return
 
+	ctts_vide_present := true
+	ctts_soun_present := true
+	stco_vide_present := true
+	stco_soun_present := true
+
     // WRITE
     // styp (=ftyp)
     styp := read_ftyp(handle) or_return
     styp.box.type = "styp"
-
-
 
     mvhd := read_mvhd(handle, vide_id) or_return
 
@@ -133,23 +136,38 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     hdlr_soun := read_hdlr(handle, soun_id) or_return
     stts_vide := read_stts(handle, vide_id) or_return
     stts_soun := read_stts(handle, soun_id) or_return
-    //ctts_vide := read_ctts(handle, vide_id) or_return
-    //ctts_soun := read_ctts(handle, soun_id) or_return
     stsc_vide := read_stsc(handle, vide_id) or_return
     stsc_soun := read_stsc(handle, soun_id) or_return
-    co64_vide := read_co64(handle, vide_id) or_return
-    co64_soun := read_co64(handle, soun_id) or_return
-    //stco_vide := read_stco(handle, vide_id) or_return
-    //stco_soun := read_stco(handle, soun_id) or_return
+
+    ctts_vide, ctts_vide_err := read_ctts(handle, vide_id)
+	if ctts_vide_err != nil || ctts_vide.entry_count == 0 {
+		ctts_vide_present = false
+	}
+    ctts_soun, ctts_soun_err := read_ctts(handle, soun_id)
+	if ctts_soun_err != nil || ctts_soun.entry_count == 0 {
+		ctts_soun_present = false
+	}
+    stco_vide, stco_vide_err := read_stco(handle, vide_id)
+	co64_vide := Co64V2{}
+	if stco_vide_err != nil || stco_vide.entry_count == 0 {
+		stco_vide_present = false
+		co64_vide = read_co64(handle, vide_id) or_return
+	}
+	co64_soun := Co64V2{}
+	stco_soun, stco_soun_err := read_stco(handle, soun_id)
+	if stco_soun_err != nil || stco_soun.entry_count == 0 {
+		stco_soun_present = false
+		co64_soun = read_co64(handle, soun_id) or_return
+	}
 
     stsz_vide := read_stsz(handle, vide_id) or_return
     stsz_soun := read_stsz(handle, soun_id) or_return
+	// stz2 ???
 
-
-    sample_number_begin_vide, sample_duration_begin_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number, fragment_duration)
-    sample_number_end_vide, sample_duration_end_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number + 1, fragment_duration)
-    sample_number_begin_soun, sample_duration_begin_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number, fragment_duration)
-    sample_number_end_soun, sample_duration_end_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number + 1, fragment_duration)
+    sample_number_begin_vide, sample_duration_begin_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number - 1, fragment_duration)
+    sample_number_end_vide, sample_duration_end_vide := get_segment_first_sampleV2(stts_vide, mdhd_vide.timescale, fragment_number, fragment_duration)
+    sample_number_begin_soun, sample_duration_begin_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number - 1, fragment_duration)
+    sample_number_end_soun, sample_duration_end_soun := get_segment_first_sampleV2(stts_soun, mdhd_soun.timescale, fragment_number, fragment_duration)
     //trun
     trun_vide := TrunV2{}
     trun_vide.box.type = "trun"
@@ -158,25 +176,26 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     trun_vide.box.is_large_size = false
     trun_vide.box.version = 0
     trun_vide.box.header_size = 12
-    trun_vide.sample_count = sample_number_end_vide - sample_number_begin_vide
+    trun_vide.sample_count = sample_number_end_vide - sample_number_begin_vide + 1
     trun_vide.data_offset_present = true
     trun_vide.data_offset = 0 // TODO
-    trun_vide.first_sample_flags_present = false
     trun_vide.sample_duration_present = true
     trun_vide.sample_size_present = true
-    trun_vide.sample_flags_present = false
-    trun_vide.sample_composition_time_offset_present = false
+    trun_vide.sample_composition_time_offset_present = ctts_vide_present
     trun_vide.box.body_size = u64be(8 + (trun_vide.sample_count * 8))
-    trun_vide.box.total_size = trun_vide.box.header_size + trun_vide.box.body_size
     trun_vide.samples = make([]TrackRunBoxSample, trun_vide.sample_count)
 	j := 0
-    for i in sample_number_begin_vide..<sample_number_end_vide {
+    for i in sample_number_begin_vide..=sample_number_end_vide {
         trun_vide.samples[j].sample_duration = get_sample_durationV2(stts_vide, i)
-        //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
+		if ctts_vide_present {
+			trun_vide.samples[j].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i)
+			trun_vide.box.body_size += 4
+		}
         trun_vide.samples[j].sample_size = get_sample_sizeV2(stsz_vide, i)
 		data_size_vide += u64be(trun_vide.samples[j].sample_size)
 		j += 1
     }
+    trun_vide.box.total_size = trun_vide.box.header_size + trun_vide.box.body_size
 
     trun_soun := TrunV2{}
     trun_soun.box.type = "trun"
@@ -185,25 +204,26 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     trun_soun.box.is_large_size = false
     trun_soun.box.version = 0
     trun_soun.box.header_size = 12
-    trun_soun.sample_count = sample_number_end_soun - sample_number_begin_soun
+    trun_soun.sample_count = sample_number_end_soun - sample_number_begin_soun + 1
     trun_soun.data_offset_present = true
     trun_soun.data_offset = 0 // TODO
-    trun_soun.first_sample_flags_present = false
     trun_soun.sample_duration_present = true
     trun_soun.sample_size_present = true
-    trun_soun.sample_flags_present = false
-    trun_soun.sample_composition_time_offset_present = false
+    trun_soun.sample_composition_time_offset_present = ctts_soun_present
     trun_soun.box.body_size = u64be(8 + (trun_soun.sample_count * 8))
-    trun_soun.box.total_size = trun_soun.box.header_size + trun_soun.box.body_size
     trun_soun.samples = make([]TrackRunBoxSample, trun_soun.sample_count)
 	j = 0
-    for i in sample_number_begin_soun..<sample_number_end_soun {
+    for i in sample_number_begin_soun..=sample_number_end_soun {
         trun_soun.samples[j].sample_duration = get_sample_durationV2(stts_soun, i)
-        //trun_vide.samples[i].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_vide, i + 1)
+		if ctts_soun_present {
+			trun_soun.samples[j].sample_composition_time_offset = get_sample_presentation_offsetV2(ctts_soun, i)
+			trun_soun.box.body_size += 4
+		}
         trun_soun.samples[j].sample_size = get_sample_sizeV2(stsz_soun, i)
 		data_size_soun += u64be(trun_soun.samples[j].sample_size)
 		j += 1
     }
+    trun_soun.box.total_size = trun_soun.box.header_size + trun_soun.box.body_size
     // tfdt
 	tfdt_vide := TfdtV2{}
 	tfdt_vide.box.type = "tfdt"
@@ -213,7 +233,7 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     tfdt_vide.box.version = 1
     tfdt_vide.box.header_size = 12
     tfdt_vide.box.body_size = 8
-	tfdt_vide.baseMediaDecodeTime = u64be(fragment_duration * f64(mdhd_vide.timescale) * f64(fragment_number))
+	tfdt_vide.baseMediaDecodeTime = u64be(fragment_duration * f64(mdhd_vide.timescale) * f64(fragment_number - 1))
     tfdt_vide.box.total_size = tfdt_vide.box.header_size + tfdt_vide.box.body_size
 
 	tfdt_soun := TfdtV2{}
@@ -224,7 +244,8 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     tfdt_soun.box.version = 1
     tfdt_soun.box.header_size = 12
     tfdt_soun.box.body_size = 8
-	tfdt_soun.baseMediaDecodeTime = u64be(fragment_duration * f64(mdhd_soun.timescale) * f64(fragment_number))
+	tfdt_soun.baseMediaDecodeTime = u64be(fragment_duration *
+	f64(mdhd_soun.timescale) * f64(fragment_number - 1))
     tfdt_soun.box.total_size = tfdt_soun.box.header_size + tfdt_soun.box.body_size
     // tfhd
 	tfhd_vide := TfhdV2{}
@@ -238,7 +259,7 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
 	tfhd_vide.default_sample_duration_present = true
 	tfhd_vide.default_sample_size_present = true
 	tfhd_vide.default_sample_duration = sample_duration_begin_vide
-	tfhd_vide.default_sample_size = get_sample_sizeV2(stsz_vide, sample_duration_begin_vide)
+	tfhd_vide.default_sample_size = get_sample_sizeV2(stsz_vide, sample_number_begin_vide)
     tfhd_vide.box.body_size = 12
     tfhd_vide.box.total_size = tfhd_vide.box.header_size + tfhd_vide.box.body_size
 
@@ -253,7 +274,7 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
 	tfhd_soun.default_sample_duration_present = true
 	tfhd_soun.default_sample_size_present = true
 	tfhd_soun.default_sample_duration = sample_duration_begin_soun
-	tfhd_soun.default_sample_size = get_sample_sizeV2(stsz_soun, sample_duration_begin_soun)
+	tfhd_soun.default_sample_size = get_sample_sizeV2(stsz_soun, sample_number_begin_soun)
     tfhd_soun.box.body_size = 12
     tfhd_soun.box.total_size = tfhd_soun.box.header_size + tfhd_soun.box.body_size
     // traf
@@ -288,6 +309,21 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     moof.header_size = 8
     moof.body_size = mfhd.box.total_size + traf_vide.total_size + traf_soun.total_size
     moof.total_size = moof.header_size + moof.body_size
+	trun_vide.data_offset = i32be(moof.total_size) + 8
+	trun_soun.data_offset = i32be(moof.total_size) + 8
+	if soun_id == 2 {
+		trun_soun.data_offset += i32be(data_size_vide)
+	} else if vide_id == 2 {
+		trun_vide.data_offset += i32be(data_size_soun)
+	}
+    //mdat
+	mdat := BoxV2{}
+	mdat.type = "mdat"
+    mdat.is_container = false
+    mdat.header_size = 8
+    mdat.body_size = data_size_vide + data_size_soun
+    mdat.total_size = mdat.header_size + mdat.body_size
+
     // sidx
     sidx_vide := SidxV2{}
     sidx_vide.box.type = "sidx"
@@ -300,13 +336,13 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     sidx_vide.box.total_size = 52
     sidx_vide.reference_ID = tkhd_vide.track_ID
     sidx_vide.timescale = mdhd_vide.timescale
-    sidx_vide.first_offset = u64be(trak_count * 52 * 2)
+    sidx_vide.first_offset = u64be((trak_count - vide_id) * 52)
     sidx_vide.earliest_presentation_time = 0 // TODO
     sidx_vide.reference_count = 1
     sidx_vide.items = make([]SegmentIndexBoxItems, sidx_vide.reference_count)
     sidx_vide.items[0].reference_type = 0
-    sidx_vide.items[0].referenced_size = 0// TODO: size moof + size mdate
-    sidx_vide.items[0].subsegment_duration = u32be(tkhd_vide.duration)
+    sidx_vide.items[0].referenced_size = u32be(moof.total_size + mdat.total_size)
+    sidx_vide.items[0].subsegment_duration = 0//u32be(tkhd_vide.duration)
     sidx_vide.items[0].starts_with_SAP = 1
     sidx_vide.items[0].SAP_type = 0
     sidx_vide.items[0].SAP_delta_time = 0
@@ -323,24 +359,16 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
     sidx_soun.box.total_size = 52
     sidx_soun.reference_ID = tkhd_soun.track_ID
     sidx_soun.timescale = mdhd_soun.timescale
-    sidx_soun.first_offset = u64be(trak_count * 52)
-    sidx_soun.earliest_presentation_time = 0 // TODO
+    sidx_soun.first_offset = u64be((trak_count - soun_id) * 52)
+    sidx_soun.earliest_presentation_time = 0// TODO
     sidx_soun.reference_count = 1
     sidx_soun.items = make([]SegmentIndexBoxItems, sidx_vide.reference_count)
     sidx_soun.items[0].reference_type = 0
-    sidx_soun.items[0].referenced_size = 0// TODO: size moof + size mdate
-    sidx_soun.items[0].subsegment_duration = u32be(tkhd_soun.duration)
+    sidx_soun.items[0].referenced_size = u32be(moof.total_size + mdat.total_size)
+    sidx_soun.items[0].subsegment_duration = 0 //u32be(tkhd_soun.duration)
     sidx_soun.items[0].starts_with_SAP = 1
     sidx_soun.items[0].SAP_type = 0
     sidx_soun.items[0].SAP_delta_time = 0
-    //mdat
-
-	mdat := BoxV2{}
-	mdat.type = "mdat"
-    mdat.is_container = false
-    mdat.header_size = 8
-    mdat.body_size = data_size_vide + data_size_soun
-    mdat.total_size = mdat.header_size + mdat.body_size
 
     // Writing boxes
     write_ftyp(output, styp) or_return
@@ -359,49 +387,53 @@ write_fragment :: proc(handle: os.Handle) -> FileError {
 	write_box(output, mdat)
 
 	// writing data
-
-	for sample in sample_number_begin_vide..<sample_number_end_vide {
+	size_writed: u64be = 0
+	for sample in sample_number_begin_vide..=sample_number_end_vide {
 		chunk_number, first_chunk_sample := sample_to_chunkV2(stsc_vide, sample)
-		sample_offset, sample_size : u64be = 0, 0
+		sample_offset, sample_size: u64be = 0, 0
 		if stsc_vide.entry_count <= 1 {
 			chunk_number = sample
 		}
-		chunk_offset := get_chunk_offsetV2(chunk_number,  co64 = co64_vide)
+		chunk_offset := get_chunk_offsetV2(chunk_number, stco_vide, co64_vide)
 		if(first_chunk_sample == 0){// TODO: write the right condition
 			sample_offset = chunk_offset
 			sample_size = u64be(get_sample_sizeV2(stsz_vide, sample))
 		}else{
 			sample_offset, sample_size = get_sample_offsetV2(stsc_vide, stsz_vide, chunk_offset, first_chunk_sample, sample)
 		}
-		buf_size := sample_size
+		fseek(handle, i64(sample_offset), os.SEEK_SET)
 		buffer := make([]u8, sample_size)
+		defer delete(buffer)
 		fread(handle, buffer)
 		fwrite(output, buffer)
+		size_writed += sample_size
 		//data := video_file_b[sample_offset : sample_offset + sample_size]
 		//mdat.data = slice.concatenate([][]byte{mdat.data,data})
-		delete(buffer)
 	}
-	for sample in sample_number_begin_soun..<sample_number_end_soun {
+	for sample in sample_number_begin_soun..=sample_number_end_soun {
 		chunk_number, first_chunk_sample := sample_to_chunkV2(stsc_soun, sample)
 		sample_offset, sample_size : u64be = 0, 0
 		if stsc_soun.entry_count <= 1 {
 			chunk_number = sample
 		}
-		chunk_offset := get_chunk_offsetV2(chunk_number,  co64 = co64_soun)
+		chunk_offset := get_chunk_offsetV2(chunk_number, stco_soun, co64_soun)
 		if(first_chunk_sample == 0){// TODO: write the right condition
 			sample_offset = chunk_offset
 			sample_size = u64be(get_sample_sizeV2(stsz_soun, sample))
 		}else{
 			sample_offset, sample_size = get_sample_offsetV2(stsc_soun, stsz_soun, chunk_offset, first_chunk_sample, sample)
 		}
-		buf_size := sample_size
+		fseek(handle, i64(sample_offset), os.SEEK_SET)
 		buffer := make([]u8, sample_size)
+		defer delete(buffer)
 		fread(handle, buffer)
 		fwrite(output, buffer)
+		size_writed += sample_size
 		//data := video_file_b[sample_offset : sample_offset + sample_size]
 		//mdat.data = slice.concatenate([][]byte{mdat.data,data})
-		delete(buffer)
 	}
+	log.debug(mdat.body_size)
+	log.debug(size_writed)
     return nil
 }
 

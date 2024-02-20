@@ -2,6 +2,7 @@ package main
 import "fmt"
 import "log"
 import "strings"
+import "strconv"
 import "path"
 import "path/filepath"
 import "os"
@@ -21,33 +22,34 @@ func CustomFileServer(root http.FileSystem) http.Handler {
 			r.URL.Path = upath
 		}
 		upath = path.Clean(upath)
+        ext := filepath.Ext(upath)
 		// attempt to open the file via the http.FileSystem
 		f, err := root.Open(upath)
 		if err != nil {
 			if os.IsNotExist(err) {
                 // Get path file extension
-                ext := filepath.Ext(upath)
                 file_name := filepath.Base(upath)
                 // check extension
                 if ext == ".m3u8" {
                     // call encoder
-                    cmd := exec.Command("../encoder", "./test.mp4", "-entity:m3u8", "-time:6.0")
+                    cmd := exec.Command("./encoder", "./test.mp4", "-entity:m3u8", "-time:6.0")
                     err := cmd.Run()
                     fmt.Println(ext)
                     if err != nil {
                         log.Fatal(err)
                     }      
                 }else if ext == ".mp4" {
-                    cmd := exec.Command("../encoder", "./test.mp4", "-entity:init", "-time:6.0")
-                    err := cmd.Run()
-                    fmt.Println(ext)
-                    if err != nil {
-                        log.Fatal(err)
-                    }      
+                    //cmd := exec.Command("./encoder", "./test.mp4", "-entity:init", "-time:6.0")
+                    //err := cmd.Run()
+                    //fmt.Println(ext)
+                    //if err != nil {
+                    //    log.Fatal(err)
+                    //}      
                 }else if ext == ".m4s" {
                     re := regexp.MustCompile("[0-9]+")
                     res := re.FindAllString(file_name, -1)
-                    cmd := exec.Command("../encoder", "./test.mp4", fmt.Sprintf("-entity:%s", res[0]), "-time:6.0")
+                    value, _ := strconv.Atoi(res[0])
+                    cmd := exec.Command("./encoder", "./test.mp4", fmt.Sprintf("-entity:%d", value + 1), "-time:6.0")
                     err := cmd.Run()
                     if err != nil {
                         log.Fatal(err)
@@ -59,9 +61,11 @@ func CustomFileServer(root http.FileSystem) http.Handler {
         }
 		// default serve
 		fs.ServeHTTP(w, r)
-        rm_err := os.Remove("./"+upath[1:])
-        if rm_err != nil {
-            fmt.Println(rm_err)
+        if ext != ".mp4" {
+            rm_err := os.Remove("./"+upath[1:])
+            if rm_err != nil {
+                fmt.Println(rm_err)
+            }
         }
 	})
 }
