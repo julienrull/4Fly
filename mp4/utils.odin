@@ -780,8 +780,8 @@ create_init_old :: proc(mp4: Mp4) ->(init: Mp4){
           init.moov.traks[i].box.size -= u32be(total_size)
           init.moov.box.size -= u32be(total_size)
           init.moov.traks[i].tkhd.duration = 0
-          //init.moov.traks[i].edts.elst.entries[0].segment_duration = 0
           init.moov.traks[i].mdia.mdhd.duration = 0
+          //init.moov.traks[i].edts.elst.entries[0].segment_duration = 0
           append(&new_traks, init.moov.traks[i])
         }else{
             init.moov.box.size -= trak.box.size
@@ -824,7 +824,6 @@ create_init :: proc(handle: os.Handle) -> FileError {
             atom.total_size += 72
             atom.body_size += 72
         }else if trak_sum == trak_count{
-            log.debug("???")
             trak_sum = 0
             mvex := BoxV2{}
             mvex.type = "mvex"
@@ -871,6 +870,7 @@ create_init :: proc(handle: os.Handle) -> FileError {
         }
         next = next_box(handle, next) or_return
     }
+    select_box(handle, "tkhd")
     return nil
 }
 

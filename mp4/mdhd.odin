@@ -2,6 +2,7 @@ package mp4
 
 import "core:slice"
 import "core:os"
+import "core:bytes"
 import "core:strings"
 
 // MediaHeaderBox
@@ -66,7 +67,36 @@ read_mdhd :: proc(handle: os.Handle, id: int = 1) -> (atom: MdhdV2, err: FileErr
     fseek(handle, 2, os.SEEK_CUR) or_return
     return atom, nil
 }
-
+write_mdhd :: proc(handle: os.Handle, atom: MdhdV2) -> FileError {
+	data := bytes.Buffer{}
+	atom_cpy := atom
+	bytes.buffer_init(&data, []u8{})
+	if atom_cpy.box.version == 1 {
+		bytes.buffer_write_ptr(&data, &atom_cpy.creation_time, 8)
+		bytes.buffer_write_ptr(&data, &atom_cpy.modification_time, 8)
+		bytes.buffer_write_ptr(&data, &atom_cpy.timescale, 4)
+		bytes.buffer_write_ptr(&data, &atom_cpy.duration, 8)
+	} else {
+		creation_time := u32be(atom_cpy.creation_time)
+		bytes.buffer_write_ptr(&data, &creation_time, 4)
+		modification_time := u32be(atom_cpy.modification_time)
+		bytes.buffer_write_ptr(&data, &modification_time, 4)
+		bytes.buffer_write_ptr(&data, &atom_cpy.timescale, 4)
+		duration := u32be(atom_cpy.duration)
+		bytes.buffer_write_ptr(&data, &duration, 4)
+	}
+    language: u16be = 0
+    language_b := transmute([]u8)atom_cpy.language
+    language &= u16be(language_b[2]) << 10
+    language &= u16be(language_b[1]) << 5
+    language &= u16be(language_b[0]) << 1
+	bytes.buffer_write_ptr(&data, &language, 2)
+	bytes.buffer_write_ptr(&data, &[2]u8{0, 0}, 2)
+	write_box(handle, atom_cpy.box) or_return
+	total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+	bytes.buffer_destroy(&data)
+	return nil
+}
 deserialize_mdhd :: proc(data: []byte) -> (mdhd: Mdhd, acc: u64){
     fullbox, fullbox_size := deserialize_fullbox(data[acc:])
     mdhd.fullbox = fullbox

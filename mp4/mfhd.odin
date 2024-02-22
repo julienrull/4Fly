@@ -32,7 +32,6 @@ write_mfhd :: proc(handle: os.Handle, atom: MfhdV2) -> FileError {
 	atom_cpy := atom
     bytes.buffer_init(&data, []u8{})
     bytes.buffer_write_ptr(&data, &atom_cpy.sequence_number, 4)
-    atom_cpy.box.total_size = atom_cpy.box.header_size + atom_cpy.box.body_size
     write_box(handle, atom_cpy.box) or_return
     total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
     bytes.buffer_destroy(&data)
