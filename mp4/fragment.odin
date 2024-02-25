@@ -14,6 +14,47 @@ get_trak_number :: proc(handle: os.Handle, type: string) -> (number: int, error:
     return number, nil
 }
 
+get_box_count :: proc(handle: os.Handle, type: string) -> (count: int, error: FileError) {
+    fseek(handle, 0, os.SEEK_SET) or_return
+    next := next_box(handle, nil) or_return
+    for next != nil {
+        atom := get_item_value(next)
+		if atom.type == type {
+			count += 1
+		}
+        next = next_box(handle, next) or_return
+    }
+    fseek(handle, 0, os.SEEK_SET) or_return
+    return count, nil
+}
+
+remove_box :: proc(handle: os.Handle, type: string, number: int = 1) -> (error: FileError){
+    fseek(handle, 0, os.SEEK_SET) or_return
+    next := next_box(handle, nil) or_return
+	count := 0
+    for next != nil {
+        atom := get_item_value(next)
+		if atom.type == type {
+			count += 1
+		}
+		if count != number {
+            if atom.is_container{
+                write_box(handle, atom) or_return
+            }else {
+                buffer := make([]u8, atom.total_size)
+                readed := fread(handle, buffer[:]) or_return
+                fseek(handle, i64(-readed), os.SEEK_CUR)
+                fwrite(handle, buffer[:]) or_return
+                delete(buffer)
+			}
+		}else{
+            atom.is_container = false
+		}
+		next = next_box(handle, next) or_return
+    }
+    fseek(handle, 0, os.SEEK_SET) or_return
+	return nil
+}
 
 get_segment_first_sampleV2 :: proc(stts: SttsV2, timescale: u32be, segment_number: u32be, segment_duration: f64) -> (sample_number: u32be, sample_duration: u32be) {
 	// * Variables
@@ -68,8 +109,7 @@ get_sample_presentation_offsetV2 :: proc(ctts: CttsV2, sample_number: u32be) -> 
 	if(ctts.entry_count > 0){
 		for entry in ctts.entries {
 			if sample_sum + entry.sample_count >  sample_number {
-				presentation_offset = entry.sample_offset
-				break
+				return entry.sample_offset
 			}
 			sample_sum += entry.sample_count
 		}
@@ -162,7 +202,7 @@ write_fragment :: proc(handle: os.Handle, number: u32be, duration: f64) -> FileE
 		stco_soun_present = false
 		co64_soun = read_co64(handle, soun_id) or_return
 	}
-
+	log.infof("types %s %s", hdlr_vide.handler_type, hdlr_soun.handler_type)
     stsz_vide := read_stsz(handle, vide_id) or_return
     stsz_soun := read_stsz(handle, soun_id) or_return
 	// stz2 ???

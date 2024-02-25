@@ -815,14 +815,28 @@ create_init :: proc(handle: os.Handle) -> FileError {
     output := fopen("init.mp4", os.O_CREATE | os.O_RDWR) or_return
     defer os.close(output)
     fseek(handle, 0, os.SEEK_SET) or_return
-    next := next_box(handle, nil) or_return
-    trak_count      :u64be = 2
+    trak_count      :u64be = u64be(get_box_count(handle, "trak") or_return)
     trak_sum        :u64be = 0
+    trak_to_remove := make([dynamic]u64be, 0, 0)
+    total_remove: u64be= 0
+    for i in 1..=trak_count{
+        trak := select_box(handle, "trak", int(i)) or_return
+        hdlr := read_hdlr(handle, int(i)) or_return
+        if hdlr.handler_type != "vide" && hdlr.handler_type != "soun" {
+            append(&trak_to_remove, i)
+            total_remove += trak.total_size
+        }
+        fseek(handle, 0, os.SEEK_SET) or_return
+    }
+    fseek(handle, 0, os.SEEK_SET) or_return
+    next := next_box(handle, nil) or_return
     for next != nil {
         atom := get_item_value(next)
         if atom.type == "moov" {
             atom.total_size += 72
             atom.body_size += 72
+            atom.total_size -= total_remove
+            atom.body_size -= total_remove
         }else if trak_sum == trak_count{
             trak_sum = 0
             mvex := BoxV2{}
@@ -858,15 +872,23 @@ create_init :: proc(handle: os.Handle) -> FileError {
                 write_box(output, atom) or_return
             }
             if !atom.is_container || atom.type == "trak" {
-                buffer := make([]u8, atom.total_size)
-                readed := fread(handle, buffer[:]) or_return
-                fseek(handle, i64(-readed), os.SEEK_CUR)
-                fwrite(output, buffer[:]) or_return
-                delete(buffer)
                 if atom.type == "trak" {
                     atom.is_container = false
                     next = atom
                     trak_sum += 1
+                    if !slice.contains(trak_to_remove[:], trak_sum) {
+                        buffer := make([]u8, atom.total_size)
+                        readed := fread(handle, buffer[:]) or_return
+                        fseek(handle, i64(-readed), os.SEEK_CUR)
+                        fwrite(output, buffer[:]) or_return
+                        delete(buffer)
+                    }
+                }else {
+                    buffer := make([]u8, atom.total_size)
+                    readed := fread(handle, buffer[:]) or_return
+                    fseek(handle, i64(-readed), os.SEEK_CUR)
+                    fwrite(output, buffer[:]) or_return
+                    delete(buffer)
                 }
             }
         }

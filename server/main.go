@@ -49,7 +49,7 @@ func CustomFileServer(root http.FileSystem) http.Handler {
                     re := regexp.MustCompile("[0-9]+")
                     res := re.FindAllString(file_name, -1)
                     value, _ := strconv.Atoi(res[0])
-                    cmd := exec.Command("./encoder", "./test.mp4", fmt.Sprintf("-entity:%d", value + 1), "-time:3.0")
+                    cmd := exec.Command("./encoder", "./test.mp4", fmt.Sprintf("-entity:%d", value), "-time:3.0")
                     err := cmd.Run()
                     if err != nil {
                         log.Fatal(err)
