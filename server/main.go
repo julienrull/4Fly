@@ -32,24 +32,24 @@ func CustomFileServer(root http.FileSystem) http.Handler {
                 // check extension
                 if ext == ".m3u8" {
                     // call encoder
-                    cmd := exec.Command("./encoder", "./test.mp4", "-entity:m3u8", "-time:6.0")
+                    cmd := exec.Command("./encoder", "./test.mp4", "-entity:m3u8", "-time:3.0")
                     err := cmd.Run()
                     fmt.Println(ext)
                     if err != nil {
                         log.Fatal(err)
                     }      
                 }else if ext == ".mp4" {
-                    //cmd := exec.Command("./encoder", "./test.mp4", "-entity:init", "-time:6.0")
-                    //err := cmd.Run()
-                    //fmt.Println(ext)
-                    //if err != nil {
-                    //    log.Fatal(err)
-                    //}      
+                    cmd := exec.Command("./encoder", "./test.mp4", "-entity:init", "-time:3.0")
+                    err := cmd.Run()
+                    fmt.Println(ext)
+                    if err != nil {
+                        log.Fatal(err)
+                    }      
                 }else if ext == ".m4s" {
                     re := regexp.MustCompile("[0-9]+")
                     res := re.FindAllString(file_name, -1)
                     value, _ := strconv.Atoi(res[0])
-                    cmd := exec.Command("./encoder", "./test.mp4", fmt.Sprintf("-entity:%d", value + 1), "-time:6.0")
+                    cmd := exec.Command("./encoder", "./test.mp4", fmt.Sprintf("-entity:%d", value + 1), "-time:3.0")
                     err := cmd.Run()
                     if err != nil {
                         log.Fatal(err)
@@ -61,11 +61,9 @@ func CustomFileServer(root http.FileSystem) http.Handler {
         }
 		// default serve
 		fs.ServeHTTP(w, r)
-        if ext != ".mp4" {
-            rm_err := os.Remove("./"+upath[1:])
-            if rm_err != nil {
-                fmt.Println(rm_err)
-            }
+        rm_err := os.Remove("./"+upath[1:])
+        if rm_err != nil {
+            fmt.Println(rm_err)
         }
 	})
 }

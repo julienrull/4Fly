@@ -87,7 +87,12 @@ get_cmd_args :: proc(
 }
 
 main :: proc() {
-	context.logger = log.create_console_logger()
+	if os.exists(".logs") {
+		os.remove(".log")
+	}
+	logs_handle, logs_err := mp4.fopen(".logs", os.O_CREATE | os.O_RDWR)
+	defer os.close(logs_handle)
+	context.logger = log.create_file_logger(logs_handle)
 	// # PROGRAM ARGS
 	args := os.args[1:]
 	cmd, path, time, type, entity := get_cmd_args(args)
@@ -101,6 +106,18 @@ main :: proc() {
 		}
 	} else {
 		if entity == "all" {
+			mvhd, err_mvhd := mp4.read_mvhd(handle)
+			fragment_count := int(f64(mvhd.duration) / f64(mvhd.timescale) / time)
+			last_fragment_duration := f64(mvhd.duration) / f64(mvhd.timescale) - f64(fragment_count) * time
+			mp4.create_manifest(handle, time)
+			mp4.create_init(handle)
+			for i in 0..<fragment_count {
+				if i == fragment_count + 1 {
+					mp4.write_fragment(handle, u32be(i), last_fragment_duration)
+				}else {
+					mp4.write_fragment(handle, u32be(i), time)
+				}
+			}
 		} else if entity == "m3u8" {
 			mp4.create_manifest(handle, time)
 		} else if entity == "init" {
@@ -112,5 +129,5 @@ main :: proc() {
 			}
 		}
 	}
-	//fmt.println("END")
+	fmt.println("END")
 }

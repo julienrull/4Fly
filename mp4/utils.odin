@@ -839,6 +839,7 @@ create_init :: proc(handle: os.Handle) -> FileError {
             trex_vide.box.body_size = 20
             trex_vide.box.total_size = trex_vide.box.header_size + trex_vide.box.body_size
             trex_vide.track_ID = 1
+            trex_vide.default_sample_description_index = 1
             trex_soun := TrexV2{}
             trex_soun.box.type = "trex"
             trex_soun.box.is_fullbox = true
@@ -846,10 +847,11 @@ create_init :: proc(handle: os.Handle) -> FileError {
             trex_soun.box.body_size = 20
             trex_soun.box.total_size = trex_soun.box.header_size + trex_soun.box.body_size
             trex_soun.track_ID = 2
+            trex_soun.default_sample_description_index = 1
             write_trex(output, trex_vide) or_return
             write_trex(output, trex_soun) or_return
         }
-        if atom.type == "mdat" {
+        if atom.type == "mdat"{
             fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
         } else{
             if atom.is_container && atom.type != "trak" {
@@ -870,7 +872,22 @@ create_init :: proc(handle: os.Handle) -> FileError {
         }
         next = next_box(handle, next) or_return
     }
-    select_box(handle, "tkhd")
+    tkhd := read_tkhd(handle) or_return
+    tkhd2 := read_tkhd(handle, 2) or_return
+    mdhd := read_mdhd(handle) or_return
+    mdhd2 := read_mdhd(handle, 2) or_return
+    tkhd.duration = 0
+    mdhd.duration = 0
+    tkhd2.duration = 0
+    mdhd2.duration = 0
+    select_box(output, "tkhd")
+    write_tkhd(output, tkhd)
+    select_box(output, "tkhd", 2)
+    write_tkhd(output, tkhd2)
+    select_box(output, "mdhd")
+    write_mdhd(output, mdhd)
+    select_box(output, "mdhd", 2)
+    write_mdhd(output, mdhd2)
     return nil
 }
 
@@ -879,8 +896,8 @@ create_manifest :: proc(handle: os.Handle, fragment_duration: f64) ->  FileError
         sb = strings.builder_init_len(sb, 0)
 
         mvhd := read_mvhd(handle) or_return
-        fragment_count := int(f64(mvhd.duration) / 1000 / fragment_duration)
-        last_fragment_duration := f64(mvhd.duration) / 1000 - f64(fragment_count) * fragment_duration
+        fragment_count := int(f64(mvhd.duration) / f64(mvhd.timescale) / fragment_duration)
+        last_fragment_duration := f64(mvhd.duration) / f64(mvhd.timescale) - f64(fragment_count) * fragment_duration
         //
         //#EXTINF:6.006000,
         //seg-0.m4s
@@ -889,16 +906,16 @@ create_manifest :: proc(handle: os.Handle, fragment_duration: f64) ->  FileError
 
         fmt.sbprint(sb, "#EXTM3U\n")
         fmt.sbprint(sb, "#EXT-X-VERSION:7\n")
-        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%v\n", fragment_duration)
+        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%f\n", fragment_duration)
         fmt.sbprint(sb, "#EXT-X-MEDIA-SEQUENCE:0\n")
         fmt.sbprint(sb, "#EXT-X-PLAYLIST-TYPE:VOD\n")
         fmt.sbprint(sb, "#EXT-X-MAP:URI=\"init.mp4\"\n")
 
         for i in 0..=fragment_count {
             if i != fragment_count {
-                fmt.sbprintf(sb, "#EXTINF:%v,\n", fragment_duration)
+                fmt.sbprintf(sb, "#EXTINF:%f,\n", fragment_duration)
             }else{
-                fmt.sbprintf(sb, "#EXTINF:%v,\n", last_fragment_duration)
+                fmt.sbprintf(sb, "#EXTINF:%f,\n", last_fragment_duration)
             }
             fmt.sbprintf(sb, "seg-%d.m4s\n", i)
         }
