@@ -123,6 +123,9 @@ fopen :: proc(path: string, mode: int = os.O_RDONLY, perm: int = 0)  -> (os.Hand
 
 fread :: proc(handle: os.Handle, buffer: []u8) -> (int, FileError) {
         total_read, read_errno := os.read(handle, buffer)
+        if total_read == 0 {
+            read_errno = 38
+        }
         if read_errno !=  os.ERROR_NONE {
             return 0 , ReadFileError {
                 message = "Reading failed.",
