@@ -80,7 +80,7 @@ get_segment_first_sampleV2 :: proc(stts: SttsV2, timescale: u32be, segment_numbe
 				if remain_time_to_begin % stts.sample_delta != 0 {
 					remain_sample_count += 1
 				}
-                sample_number = sample_count_cum + remain_sample_count
+                sample_number = sample_count_cum + remain_sample_count + 1
                 sample_duration = stts.sample_delta
                 return sample_number, sample_duration
             }

@@ -819,13 +819,31 @@ create_init :: proc(handle: os.Handle) -> FileError {
     trak_sum        :u64be = 0
     trak_to_remove := make([dynamic]u64be, 0, 0)
     total_remove: u64be= 0
+    vide_count := 0
+    soun_count := 0
     for i in 1..=trak_count{
         trak := select_box(handle, "trak", int(i)) or_return
         hdlr := read_hdlr(handle, int(i)) or_return
-        if hdlr.handler_type != "vide" && hdlr.handler_type != "soun" {
+        if (hdlr.handler_type != "vide" && hdlr.handler_type != "soun") {
             append(&trak_to_remove, i)
             total_remove += trak.total_size
+        }else {
+            if hdlr.handler_type == "vide"{
+                vide_count += 1
+                if vide_count > 1 {
+                    append(&trak_to_remove, i)
+                    total_remove += trak.total_size
+                }
+            }
+            if hdlr.handler_type == "soun"{
+                soun_count += 1
+                if soun_count > 1 {
+                    append(&trak_to_remove, i)
+                    total_remove += trak.total_size
+                }
+            }
         }
+
         fseek(handle, 0, os.SEEK_SET) or_return
     }
     fseek(handle, 0, os.SEEK_SET) or_return
@@ -865,9 +883,9 @@ create_init :: proc(handle: os.Handle) -> FileError {
             write_trex(output, trex_vide) or_return
             write_trex(output, trex_soun) or_return
         }
-        if atom.type == "mdat"{
+        if atom.type == "mdat" {
             fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
-        } else{
+        }else{
             if atom.is_container && atom.type != "trak" {
                 write_box(output, atom) or_return
             }
