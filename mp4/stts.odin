@@ -4,6 +4,7 @@ import "core:mem"
 import "core:slice"
 import "core:os"
 import "core:fmt"
+import "core:bytes"
 
 // TimeToSampleBox
 Stts :: struct {
@@ -36,6 +37,26 @@ read_stts :: proc(handle: os.Handle, id: int = 1) -> (atom: SttsV2, err: FileErr
     fread(handle, entries_b[:]) or_return
     atom.entries = (transmute([]TimeToSampleBoxEntrie)entries_b)[:atom.entry_count]
     return atom, nil
+}
+
+write_stts :: proc(handle: os.Handle, atom: SttsV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+	stts_to_bytes(atom, &data)
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
+}
+
+stts_to_bytes :: proc(atom: SttsV2, buffer: ^bytes.Buffer){
+	atom_cpy := atom
+    box_to_bytes(atom_cpy.box, buffer)
+    bytes.buffer_write_ptr(buffer, &atom_cpy.entry_count, 4)
+	if atom_cpy.entry_count > 0 {
+		bytes.buffer_write_ptr(buffer, &atom_cpy.entries,
+		size_of(TimeToSampleBoxEntrie) * int(atom_cpy.entry_count))
+	}
 }
 
 deserialize_stts :: proc(data: []byte) -> (stts: Stts, acc: u64) {

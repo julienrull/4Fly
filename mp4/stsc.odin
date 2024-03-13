@@ -4,6 +4,7 @@ import "core:slice"
 import "core:mem"
 import "core:fmt"
 import "core:os"
+import "core:bytes"
 
 // SampleToChunkBox
 Stsc :: struct {
@@ -36,6 +37,21 @@ read_stsc :: proc(handle: os.Handle, id: int = 1) -> (atom: StscV2, err: FileErr
     fread(handle, entries_b[:]) or_return
     atom.entries = (transmute([]SampleToChunkBoxEntries)entries_b)[:atom.entry_count]
     return atom, nil
+}
+
+write_stsc :: proc(handle: os.Handle, atom: StscV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    if atom_cpy.entry_count > 0 {
+        bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+        size_of(SampleToChunkBoxEntries) * int(atom_cpy.entry_count))
+    }
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_stsc :: proc(data: []byte) -> (stsc: Stsc, acc: u64) {

@@ -3,6 +3,7 @@ package mp4
 import "core:mem"
 import "core:os"
 import "core:slice"
+import "core:bytes"
 
 // ChunkOffsetBox
 Stco :: struct {
@@ -43,6 +44,19 @@ read_stco :: proc(handle: os.Handle, id: int = 1) -> (atom: StcoV2, err: FileErr
 	return atom, nil
 }
 
+write_stco :: proc(handle: os.Handle, atom: StcoV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+	size_of(u32be) * int(atom_cpy.entry_count))
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
+}
+
 read_co64 :: proc(handle: os.Handle, id: int = 1) -> (atom: Co64V2, err: FileError) {
 	box := select_box(handle, "co64", id) or_return
 	atom.box = box
@@ -54,6 +68,19 @@ read_co64 :: proc(handle: os.Handle, id: int = 1) -> (atom: Co64V2, err: FileErr
 	fread(handle, entries_b[:]) or_return
 	atom.entries = (transmute([]u64be)entries_b)[:atom.entry_count]
 	return atom, nil
+}
+
+write_co64 :: proc(handle: os.Handle, atom: Co64V2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+	size_of(u64be) * int(atom_cpy.entry_count))
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_stco :: proc(data: []byte) -> (stco: Stco, acc: u64) {

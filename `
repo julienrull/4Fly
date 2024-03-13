@@ -5,7 +5,6 @@ import "core:log"
 import "core:os"
 import "core:strconv"
 import "core:strings"
-import "core:bytes"
 
 get_trak_number :: proc(handle: os.Handle, type: string) -> (number: int, error: FileError) {
 	number = 1
@@ -759,355 +758,76 @@ delete_box :: proc(selector: string, src: string, dest: string) -> FileError {
 	return nil
 }
 
-update_box :: proc(selector: string, data: []u8, src: string, dest: string) -> FileError {
-	// get file name and extension
-	path_split := strings.split(selector, "/")
+create_init :: proc(src: string) -> FileError {
+	// Delete unsused traks
+	vide_count := 0
+	soun_count := 0
 	handle := fopen(src, os.O_RDWR, os.O_RDWR) or_return
-	defer os.close(handle)
-	output := fopen(dest, os.O_CREATE | os.O_RDWR, os.O_RDWR) or_return
-	defer os.close(output)
-	next := next_box(handle, nil) or_return
-	to_change: i64be
-	i := 0
-	j := 0
-	found := false
-	for next != nil {
-		box := get_item_value(next)
-		if i < len(path_split) {
-			index := 1
-			type := path_split[i]
-			if strings.contains(type, ":") {
-				type_split := strings.split(type, ":")
-				type = type_split[0]
-				index = strconv.atoi(type_split[1])
-			}
-			if box.type == type {
-				j += 1
-				if j == index {
-					if i == len(path_split) - 1 {
-						found = true
-					}
-					i += 1
-					j = 0
-				}
-			}
-		}
-		if !found {
-			if box.is_container {
-				buffer := make([]u8, box.header_size)
-				fread(handle, buffer)
-				fwrite(output, buffer)
-				fseek(handle, i64(-box.header_size), os.SEEK_CUR)
-			} else {
-				fmt.println(box.type)
-				buffer := make([]u8, box.total_size)
-				fread(handle, buffer)
-				fwrite(output, buffer)
-				fseek(handle, i64(-box.total_size), os.SEEK_CUR)
-			}
+	trak_count := get_box_count(handle, "trak") or_return
+	trak_to_remove := make([dynamic]int, 0, 5)
+	for i in 1 ..= trak_count {
+		hdlr := read_hdlr(handle, i) or_return
+		if hdlr.handler_type != "vide" && hdlr.handler_type != "soun" {
+			append(&trak_to_remove, i)
 		} else {
-			if len(data) == 0 {
-				to_change = -(i64be(box.total_size))
-				box.is_container = false
-				next = box
-			}else {
-				fmt.println("UPDATE", len(data))
-				to_change += i64be(len(data)) - i64be(box.total_size)
-				fwrite(output, data) or_return
-			}
-		}
-		found = false
-		next = next_box(handle, next) or_return
-	}
-	i = 0
-	if len(path_split) > 1 {
-		for i < len(path_split) - 1 {
-			path := strings.join(path_split[:i + 1], "/")
-			box := select_boxV2(path, output) or_return
-			if to_change < 0 {
-				box.total_size -= u64be(to_change * -1)
-				box.body_size -= u64be(to_change * -1)
-			}else {
-				box.total_size += u64be(to_change)
-				box.body_size += u64be(to_change)
-			}
-			write_box(output, box)
-			i += 1
-		}
-	}
-
-	return nil
-}
-update_parents :: proc(output: os.Handle, trak_count: int, to_remove: u64be) -> FileError{
-	moov_box := select_box(output, "moov") or_return
-	moov_box.body_size -= to_remove
-	moov_box.total_size -= to_remove
-	write_box(output, moov_box) or_return
-	trak_box := select_box(output, "trak", trak_count) or_return
-	trak_box.body_size -= to_remove
-	trak_box.total_size -= to_remove
-	write_box(output, trak_box) or_return
-	mdia_box := select_box(output, "mdia", trak_count) or_return
-	mdia_box.body_size -= to_remove
-	mdia_box.total_size -= to_remove
-	write_box(output, mdia_box) or_return
-	minf_box := select_box(output, "minf", trak_count) or_return
-	minf_box.body_size -= to_remove
-	minf_box.total_size -= to_remove
-	write_box(output, minf_box) or_return
-	stbl_box := select_box(output, "stbl", trak_count) or_return
-	stbl_box.body_size -= to_remove
-	stbl_box.total_size -= to_remove
-	write_box(output, stbl_box) or_return
-	fseek(output, 0, os.SEEK_END)
-	return nil
-}
-create_init :: proc(handle: os.Handle) -> FileError {
-	// INIT OUTPUT
-	output := fopen("init.mp4", os.O_CREATE | os.O_RDWR, os.O_RDWR) or_return
-	defer os.close(output)
-	next := next_box(handle, nil) or_return
-	// GLOBAL CURSOR
-	trak_count := 0
-	stts_count := 0
-	// COUNTERS vide_trak_count := 0 soun_trak_count := 0
-	vide_trak_count := 0
-	soun_trak_count := 0
-	to_remove: u64be
-	// LOOuP
-	for next != nil {
-		box := get_item_value(next)
-		// INIT ACTION
-		action := "COPY"
-		// TRAKS
-		if box.type == "trak" {
-			trak_count += 1
-			trak_size := box.total_size
-			select_box(handle, "hdlr", trak_count) or_return
-			hdlr := read_hdlr(handle, trak_count) or_return
-			// UPDATE COUNTERS
 			if hdlr.handler_type == "vide" {
-				vide_trak_count += 1
-			}else if hdlr.handler_type == "soun" {
-				soun_trak_count += 1
+				vide_count += 1
 			}
-			// CHECK IF TRAK HAVE TO BE REMOVED
-			if hdlr.handler_type != "vide" && hdlr.handler_type != "soun" {
-				action = "REMOVE"
-			}else if vide_trak_count > 1 {
-				action = "REMOVE"
-			}else if soun_trak_count > 1  {
-				action = "REMOVE"
+			if hdlr.handler_type == "soun" {
+				soun_count += 1
 			}
-			// SEEK TO THE CORESPONDING TRAK
-			trak_box := select_box(handle, "trak", trak_count) or_return
-			if action == "REMOVE" {
-				// UPDATE MOOV
-				moov_box := select_box(output, "moov") or_return
-				moov_box.body_size -= trak_size
-				moov_box.total_size -= trak_size
-				write_box(output, moov_box) or_return
-				fseek(output, 0, os.SEEK_END)
-				// SKIP TRAK
-				trak_box.is_container = false
-				next = trak_box
-			}else if action == "COPY" {
-				buffer := make([]u8, box.header_size)
-				fread(handle, buffer)
-				fwrite(output, buffer)
-				fseek(handle, i64(-trak_box.header_size), os.SEEK_CUR)
-			}
-		}else if box.type == "stts" {
-			atom := SttsV2{}
-			atom.box.type = "stts"
-			atom.box.body_size = 4
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_stts(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}else if box.type == "stsc" {
-			atom := StscV2{}
-			atom.box.type = "stsc"
-			atom.box.body_size = 4
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_stsc(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}else if box.type == "stco" {
-			atom := StcoV2{}
-			atom.box.type = "stco"
-			atom.box.body_size = 4
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_stco(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}else if box.type == "co64" {
-			atom := Co64V2{}
-			atom.box.type = "co64"
-			atom.box.body_size = 4
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_co64(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}else if box.type == "stsz" {
-			atom := StszV2{}
-			atom.box.type = "stsz"
-			atom.box.body_size = 8
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_stsz(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}else if box.type == "ctts" {
-			atom := CttsV2{}
-			atom.box.type = "ctts"
-			atom.box.body_size = 4
-			atom.box.header_size = 12
-			atom.box.total_size = atom.box.body_size + atom.box.header_size
-			atom.box.is_fullbox  = true
-			write_ctts(output, atom)
-			to_remove = u64be(abs(i64be(atom.box.total_size) - i64be(box.total_size)))
-			update_parents(output, trak_count, to_remove)
-		}
-		else if box.type == "mdat" || box.type == "free"{
-		}else if box.type == "udta"{
-				moov_box := select_box(output, "moov") or_return
-				moov_box.body_size -= box.total_size
-				moov_box.total_size -= box.total_size
-				write_box(output, moov_box) or_return
-				fseek(output, 0, os.SEEK_END)
-				box.is_container = false
-				next = box
-		}else {
-			if box.is_container {
-				buffer := make([]u8, box.header_size)
-				fread(handle, buffer)
-				fwrite(output, buffer)
-				fseek(handle, i64(-box.header_size), os.SEEK_CUR)
-			} else {
-				buffer := make([]u8, box.total_size)
-				fread(handle, buffer)
-				fwrite(output, buffer)
-				fseek(handle, i64(-box.total_size), os.SEEK_CUR)
+			if vide_count > 1 || soun_count > 1 {
+				append(&trak_to_remove, i)
 			}
 		}
-		next = next_box(handle, next) or_return
 	}
-	fseek(output, 0, os.SEEK_END) or_return
-	mvex := BoxV2{}
-	mvex.type = "mvex"
-	mvex.is_container = true
-	mvex.header_size = 8
-	mvex.body_size = 64
-	mvex.total_size = mvex.header_size + mvex.body_size
-	write_box(output, mvex) or_return
-	trex_vide := TrexV2{}
-	trex_vide.box.type = "trex"
-	trex_vide.box.is_fullbox = true
-	trex_vide.box.header_size = 12
-	trex_vide.box.body_size = 20
-	trex_vide.box.total_size = trex_vide.box.header_size + trex_vide.box.body_size
-	trex_vide.track_ID = 1
-	trex_vide.default_sample_description_index = 1
-	trex_soun := TrexV2{}
-	trex_soun.box.type = "trex"
-	trex_soun.box.is_fullbox = true
-	trex_soun.box.header_size = 12
-	trex_soun.box.body_size = 20
-	trex_soun.box.total_size = trex_soun.box.header_size + trex_soun.box.body_size
-	trex_soun.track_ID = 2
-	trex_soun.default_sample_description_index = 1
-	write_trex(output, trex_vide) or_return
-	write_trex(output, trex_soun) or_return
-	moov_box := select_box(output, "moov") or_return
-	moov_box.body_size += 72
-	moov_box.total_size += 72
-	write_box(output, moov_box) or_return
+	os.close(handle)
+	log.debug("???")
+	old_name := ".working"
+	name := "init.mp4"
+	delete_box("moov/udta", src, name) or_return
+	temp := name
+	name = old_name
+	old_name = temp
+	delete_box("free", old_name, name) or_return
+	os.remove(old_name)
+	temp = name
+	name = old_name
+	old_name = temp
+	delete_box("mdat", old_name, name) or_return
+	os.remove(old_name)
+	temp = name
+	name = old_name
+	old_name = temp
+	for index in trak_to_remove {
+		index_str := strconv.itoa([]u8{0, 0}, index)
+		selector := strings.concatenate([]string{"moov/trak:", index_str})
+		delete_box(selector, old_name, name) or_return
+		if os.exists(old_name) {
+			os.remove(old_name)
+		}
+		temp := name
+		name = old_name
+		old_name = temp
+	}
+	if old_name == ".working" {
+		os.rename(".working", "init.mp4")
+	}
+	delete(trak_to_remove)
+	// Update stbl boxes
+	to_substract: u64be = 0
+	handle = fopen(src, os.O_RDWR, os.O_RDWR) or_return
+	stts := read_stts(handle) or_return
+	to_substract += u64be(stts.entry_count *
+	u32be(size_of(TimeToSampleBoxEntrie)))
+	stts.entry_count = 0
+	stts.entries = nil
+	box := select_boxV2("moov/trak/mdia/minf/stbl/stts", handle) or_return
+
+	os.close(handle)
+	// Add mvex
 	return nil
 }
-//create_init :: proc(src: string) -> FileError {
-//	// Delete unsused traks
-//	vide_count := 0
-//	soun_count := 0
-//	handle := fopen(src, os.O_RDWR, os.O_RDWR) or_return
-//	trak_count := get_box_count(handle, "trak") or_return
-//	trak_to_remove := make([dynamic]int, 0, 5)
-//	for i in 1 ..= trak_count {
-//		hdlr := read_hdlr(handle, i) or_return
-//		if hdlr.handler_type != "vide" && hdlr.handler_type != "soun" {
-//			append(&trak_to_remove, i)
-//		} else {
-//			if hdlr.handler_type == "vide" {
-//				vide_count += 1
-//			}
-//			if hdlr.handler_type == "soun" {
-//				soun_count += 1
-//			}
-//			if vide_count > 1 || soun_count > 1 {
-//				append(&trak_to_remove, i)
-//			}
-//		}
-//	}
-//	os.close(handle)
-//	old_name := ".working"
-//	name := "init.mp4"
-//	delete_box("moov/udta", src, name) or_return
-//	temp := name
-//	name = old_name
-//	old_name = temp
-//	delete_box("free", old_name, name) or_return
-//	os.remove(old_name)
-//	temp = name
-//	name = old_name
-//	old_name = temp
-//	delete_box("mdat", old_name, name) or_return
-//	os.remove(old_name)
-//	temp = name
-//	name = old_name
-//	old_name = temp
-//	for index in trak_to_remove {
-//		index_str := strconv.itoa([]u8{0, 0}, index)
-//		selector := strings.concatenate([]string{"moov/trak:", index_str})
-//		delete_box(selector, old_name, name) or_return
-//		if os.exists(old_name) {
-//			os.remove(old_name)
-//		}
-//		temp := name
-//		name = old_name
-//		old_name = temp
-//	}
-//	delete(trak_to_remove)
-//	//os.remove(old_name)
-//	//temp = name
-//	//name = old_name
-//	//old_name = temp
-//	// Update stbl boxes
-//	stts := SttsV2{}
-//	stts.box.type = "stts"
-//	stts.box.body_size = 4
-//	stts.box.header_size = 12
-//	stts.box.total_size = stts.box.body_size + stts.box.header_size
-//	stts.box.is_fullbox  = true
-//	data := bytes.Buffer{}
-//	bytes.buffer_init(&data, []u8{})
-//	stts_to_bytes(stts, &data)
-//	update_box("moov/trak/mdia/minf/stbl/stts", bytes.buffer_to_bytes(&data), old_name, name) or_return
-//	// Add mvex
-//
-//	if old_name == ".working" {
-//		os.rename(".working", "init.mp4")
-//	}
-//	return nil
-//}
 create_manifest :: proc(handle: os.Handle, fragment_duration: f64) -> FileError {
 	sb := &strings.Builder{}
 	sb = strings.builder_init_len(sb, 0)

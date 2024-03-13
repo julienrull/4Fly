@@ -75,34 +75,38 @@ read_box :: proc(handle: os.Handle) -> (box: BoxV2, err: FileError) {
 write_box :: proc(handle: os.Handle, box: BoxV2) -> FileError {
 	data := bytes.Buffer{}
 	bytes.buffer_init(&data, []u8{})
+	box_to_bytes(box, &data)
+	// TODO: handle io error for buffer_to_bytes
+	total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+	bytes.buffer_destroy(&data)
+	return nil
+}
+
+box_to_bytes :: proc(box: BoxV2, buffer: ^bytes.Buffer) {
 	size: u32be = 1
 	type := box.type
 	type_b := transmute([]u8)type
 	type_n := (^u32be)(&type_b[0])^
 	if box.is_large_size {
-		bytes.buffer_write_ptr(&data, &size, 4)
-		bytes.buffer_write_ptr(&data, &type_n, 4)
+		bytes.buffer_write_ptr(buffer, &size, 4)
+		bytes.buffer_write_ptr(buffer, &type_n, 4)
 		largesize := box.total_size
-		bytes.buffer_write_ptr(&data, &largesize, 8)
+		bytes.buffer_write_ptr(buffer, &largesize, 8)
 	} else {
 		size = u32be(box.total_size)
-		bytes.buffer_write_ptr(&data, &size, 4)
-		bytes.buffer_write_ptr(&data, &type_n, 4)
+		bytes.buffer_write_ptr(buffer, &size, 4)
+		bytes.buffer_write_ptr(buffer, &type_n, 4)
 	}
 	if box.usertype != "" {
 		usertype := box.usertype
-		bytes.buffer_write_ptr(&data, &usertype, 16)
+		bytes.buffer_write_ptr(buffer, &usertype, 16)
 	}
 	if box.is_fullbox {
 		version := box.version
 		flags := box.flags
-		bytes.buffer_write_ptr(&data, &version, 1)
-		bytes.buffer_write_ptr(&data, &flags, 3)
+		bytes.buffer_write_ptr(buffer, &version, 1)
+		bytes.buffer_write_ptr(buffer, &flags, 3)
 	}
-	// TODO: handle io error for buffer_to_bytes
-	total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
-	bytes.buffer_destroy(&data)
-	return nil
 }
 
 serialize_box :: proc(box: Box) -> (data: []byte) {

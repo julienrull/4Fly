@@ -810,159 +810,123 @@ create_init_old :: proc(mp4: Mp4) ->(init: Mp4){
 	init.mdat.box.type = 0
 	return init
 }
+//create_init :: proc(handle: os.Handle) -> FileError {
+//    output := fopen("init.mp4", os.O_CREATE | os.O_RDWR) or_return
+//    defer os.close(output)
+//    fseek(handle, 0, os.SEEK_SET) or_return
+//    trak_count      :u64be = u64be(get_box_count(handle, "trak") or_return)
+//    trak_sum        :u64be = 0
+//    trak_to_remove := make([dynamic]u64be, 0, 0)
+//    total_remove: u64be= 0
+//    vide_count := 0
+//    soun_count := 0
+//    for i in 1..=trak_count{
+//        trak := select_box(handle, "trak", int(i)) or_return
+//        hdlr := read_hdlr(handle, int(i)) or_return
+//        if (hdlr.handler_type != "vide" && hdlr.handler_type != "soun") {
+//            append(&trak_to_remove, i)
+//            total_remove += trak.total_size
+//        }else {
+//            if hdlr.handler_type == "vide"{
+//                vide_count += 1
+//                if vide_count > 1 {
+//                    append(&trak_to_remove, i)
+//                    total_remove += trak.total_size
+//                }
+//            }
+//            if hdlr.handler_type == "soun"{
+//                soun_count += 1
+//                if soun_count > 1 {
+//                    append(&trak_to_remove, i)
+//                    total_remove += trak.total_size
+//                }
+//            }
+//        }
+//
+//        fseek(handle, 0, os.SEEK_SET) or_return
+//    }
+//    fseek(handle, 0, os.SEEK_SET) or_return
+//    next := next_box(handle, nil) or_return
+//    for next != nil {
+//        atom := get_item_value(next)
+//        if atom.type == "moov" {
+//            atom.total_size += 72
+//            atom.body_size += 72
+//            atom.total_size -= total_remove
+//            atom.body_size -= total_remove
+//        }else if trak_sum == trak_count{
+//            trak_sum = 0
+//            mvex := BoxV2{}
+//            mvex.type = "mvex"
+//            mvex.is_container = true
+//            mvex.header_size = 8
+//            mvex.body_size = 64
+//            mvex.total_size = mvex.header_size + mvex.body_size
+//            write_box(output, mvex) or_return
+//            trex_vide := TrexV2{}
+//            trex_vide.box.type = "trex"
+//            trex_vide.box.is_fullbox = true
+//            trex_vide.box.header_size = 12
+//            trex_vide.box.body_size = 20
+//            trex_vide.box.total_size = trex_vide.box.header_size + trex_vide.box.body_size
+//            trex_vide.track_ID = 1
+//            trex_vide.default_sample_description_index = 1
+//            trex_soun := TrexV2{}
+//            trex_soun.box.type = "trex"
+//            trex_soun.box.is_fullbox = true
+//            trex_soun.box.header_size = 12
+//            trex_soun.box.body_size = 20
+//            trex_soun.box.total_size = trex_soun.box.header_size + trex_soun.box.body_size
+//            trex_soun.track_ID = 2
+//            trex_soun.default_sample_description_index = 1
+//            write_trex(output, trex_vide) or_return
+//            write_trex(output, trex_soun) or_return
+//        }
+//        if atom.type == "mdat" {
+//            fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
+//        }else{
+//            if atom.is_container && atom.type != "trak" {
+//                write_box(output, atom) or_return
+//            }
+//            if !atom.is_container || atom.type == "trak" {
+//                if atom.type == "trak" {
+//                    atom.is_container = false
+//                    next = atom
+//                    trak_sum += 1
+//                    if !slice.contains(trak_to_remove[:], trak_sum) {
+//                        buffer := make([]u8, atom.total_size)
+//                        readed := fread(handle, buffer[:]) or_return
+//                        fseek(handle, i64(-readed), os.SEEK_CUR)
+//                        fwrite(output, buffer[:]) or_return
+//                        delete(buffer)
+//                    }
+//                }else {
+//                    buffer := make([]u8, atom.total_size)
+//                    readed := fread(handle, buffer[:]) or_return
+//                    fseek(handle, i64(-readed), os.SEEK_CUR)
+//                    fwrite(output, buffer[:]) or_return
+//                    delete(buffer)
+//                }
+//            }
+//        }
+//        next = next_box(handle, next) or_return
+//    }
+//    tkhd := read_tkhd(handle) or_return
+//    tkhd2 := read_tkhd(handle, 2) or_return
+//    mdhd := read_mdhd(handle) or_return
+//    mdhd2 := read_mdhd(handle, 2) or_return
+//    tkhd.duration = 0
+//    mdhd.duration = 0
+//    tkhd2.duration = 0
+//    mdhd2.duration = 0
+//    select_box(output, "tkhd")
+//    write_tkhd(output, tkhd)
+//    select_box(output, "tkhd", 2)
+//    write_tkhd(output, tkhd2)
+//    select_box(output, "mdhd")
+//    write_mdhd(output, mdhd)
+//    select_box(output, "mdhd", 2)
+//    write_mdhd(output, mdhd2)
+//    return nil
+//}
 
-create_init :: proc(handle: os.Handle) -> FileError {
-    output := fopen("init.mp4", os.O_CREATE | os.O_RDWR) or_return
-    defer os.close(output)
-    fseek(handle, 0, os.SEEK_SET) or_return
-    trak_count      :u64be = u64be(get_box_count(handle, "trak") or_return)
-    trak_sum        :u64be = 0
-    trak_to_remove := make([dynamic]u64be, 0, 0)
-    total_remove: u64be= 0
-    vide_count := 0
-    soun_count := 0
-    for i in 1..=trak_count{
-        trak := select_box(handle, "trak", int(i)) or_return
-        hdlr := read_hdlr(handle, int(i)) or_return
-        if (hdlr.handler_type != "vide" && hdlr.handler_type != "soun") {
-            append(&trak_to_remove, i)
-            total_remove += trak.total_size
-        }else {
-            if hdlr.handler_type == "vide"{
-                vide_count += 1
-                if vide_count > 1 {
-                    append(&trak_to_remove, i)
-                    total_remove += trak.total_size
-                }
-            }
-            if hdlr.handler_type == "soun"{
-                soun_count += 1
-                if soun_count > 1 {
-                    append(&trak_to_remove, i)
-                    total_remove += trak.total_size
-                }
-            }
-        }
-
-        fseek(handle, 0, os.SEEK_SET) or_return
-    }
-    fseek(handle, 0, os.SEEK_SET) or_return
-    next := next_box(handle, nil) or_return
-    for next != nil {
-        atom := get_item_value(next)
-        if atom.type == "moov" {
-            atom.total_size += 72
-            atom.body_size += 72
-            atom.total_size -= total_remove
-            atom.body_size -= total_remove
-        }else if trak_sum == trak_count{
-            trak_sum = 0
-            mvex := BoxV2{}
-            mvex.type = "mvex"
-            mvex.is_container = true
-            mvex.header_size = 8
-            mvex.body_size = 64
-            mvex.total_size = mvex.header_size + mvex.body_size
-            write_box(output, mvex) or_return
-            trex_vide := TrexV2{}
-            trex_vide.box.type = "trex"
-            trex_vide.box.is_fullbox = true
-            trex_vide.box.header_size = 12
-            trex_vide.box.body_size = 20
-            trex_vide.box.total_size = trex_vide.box.header_size + trex_vide.box.body_size
-            trex_vide.track_ID = 1
-            trex_vide.default_sample_description_index = 1
-            trex_soun := TrexV2{}
-            trex_soun.box.type = "trex"
-            trex_soun.box.is_fullbox = true
-            trex_soun.box.header_size = 12
-            trex_soun.box.body_size = 20
-            trex_soun.box.total_size = trex_soun.box.header_size + trex_soun.box.body_size
-            trex_soun.track_ID = 2
-            trex_soun.default_sample_description_index = 1
-            write_trex(output, trex_vide) or_return
-            write_trex(output, trex_soun) or_return
-        }
-        if atom.type == "mdat" {
-            fseek(handle, i64(atom.total_size), os.SEEK_CUR) or_return
-        }else{
-            if atom.is_container && atom.type != "trak" {
-                write_box(output, atom) or_return
-            }
-            if !atom.is_container || atom.type == "trak" {
-                if atom.type == "trak" {
-                    atom.is_container = false
-                    next = atom
-                    trak_sum += 1
-                    if !slice.contains(trak_to_remove[:], trak_sum) {
-                        buffer := make([]u8, atom.total_size)
-                        readed := fread(handle, buffer[:]) or_return
-                        fseek(handle, i64(-readed), os.SEEK_CUR)
-                        fwrite(output, buffer[:]) or_return
-                        delete(buffer)
-                    }
-                }else {
-                    buffer := make([]u8, atom.total_size)
-                    readed := fread(handle, buffer[:]) or_return
-                    fseek(handle, i64(-readed), os.SEEK_CUR)
-                    fwrite(output, buffer[:]) or_return
-                    delete(buffer)
-                }
-            }
-        }
-        next = next_box(handle, next) or_return
-    }
-    tkhd := read_tkhd(handle) or_return
-    tkhd2 := read_tkhd(handle, 2) or_return
-    mdhd := read_mdhd(handle) or_return
-    mdhd2 := read_mdhd(handle, 2) or_return
-    tkhd.duration = 0
-    mdhd.duration = 0
-    tkhd2.duration = 0
-    mdhd2.duration = 0
-    select_box(output, "tkhd")
-    write_tkhd(output, tkhd)
-    select_box(output, "tkhd", 2)
-    write_tkhd(output, tkhd2)
-    select_box(output, "mdhd")
-    write_mdhd(output, mdhd)
-    select_box(output, "mdhd", 2)
-    write_mdhd(output, mdhd2)
-    return nil
-}
-
-create_manifest :: proc(handle: os.Handle, fragment_duration: f64) ->  FileError {
-        sb := &strings.Builder{}
-        sb = strings.builder_init_len(sb, 0)
-
-        mvhd := read_mvhd(handle) or_return
-        fragment_count := int(f64(mvhd.duration) / f64(mvhd.timescale) / fragment_duration)
-        last_fragment_duration := f64(mvhd.duration) / f64(mvhd.timescale) - f64(fragment_count) * fragment_duration
-        //
-        //#EXTINF:6.006000,
-        //seg-0.m4s
-        //#EXTINF:6.006000,
-        //seg-1.m4s
-
-        fmt.sbprint(sb, "#EXTM3U\n")
-        fmt.sbprint(sb, "#EXT-X-VERSION:7\n")
-        fmt.sbprintf(sb, "#EXT-X-TARGETDURATION:%f\n", fragment_duration)
-        fmt.sbprint(sb, "#EXT-X-MEDIA-SEQUENCE:0\n")
-        fmt.sbprint(sb, "#EXT-X-PLAYLIST-TYPE:VOD\n")
-        fmt.sbprint(sb, "#EXT-X-MAP:URI=\"init.mp4\"\n")
-
-        for i in 0..=fragment_count {
-            if i != fragment_count {
-                fmt.sbprintf(sb, "#EXTINF:%f,\n", fragment_duration)
-            }else{
-                fmt.sbprintf(sb, "#EXTINF:%f,\n", last_fragment_duration)
-            }
-            fmt.sbprintf(sb, "seg-%d.m4s\n", i)
-        }
-        fmt.sbprint(sb, "#EXT-X-ENDLIST")
-        output := fopen("media.m3u8", os.O_CREATE | os.O_RDWR) or_return
-        defer os.close(output)
-        fwrite(output, sb.buf[:]) or_return
-        strings.builder_destroy(sb)
-        return nil
-}

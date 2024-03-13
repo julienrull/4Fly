@@ -4,6 +4,7 @@ import "core:log"
 import "core:mem"
 import "core:slice"
 import "core:os"
+import "core:bytes"
 
 // CompositionOffsetBox
 Ctts :: struct {
@@ -36,6 +37,19 @@ read_ctts :: proc(handle: os.Handle, id: int = 1) -> (atom: CttsV2, err: FileErr
     fread(handle, entries_b[:]) or_return
     atom.entries = (transmute([]CompositionOffsetBoxEntries)entries_b)[:atom.entry_count]
     return atom, nil
+}
+
+write_ctts :: proc(handle: os.Handle, atom: CttsV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+	size_of(CompositionOffsetBoxEntries) * int(atom_cpy.entry_count))
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_ctts :: proc(data: []byte) -> (ctts: Ctts, acc: u64) {
