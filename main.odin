@@ -96,12 +96,8 @@ main :: proc() {
 	// # PROGRAM ARGS
 	args := os.args[1:]
 	cmd, path, time, type, entity := get_cmd_args(args)
-	handle: os.Handle
-	err: mp4.FileError
-	if entity != "init" && entity != "all" {
-		handle, err = mp4.fopen(path)
-		defer os.close(handle)
-	}
+	handle, err := mp4.fopen(path)
+	defer os.close(handle)
 	// ###
 	if cmd == "dump" {
 		dump_error := mp4.dump(handle)
@@ -109,7 +105,6 @@ main :: proc() {
 		    mp4.handle_dump_error(dump_error)
 		}
 	} else {
-		handle, err = mp4.fopen(path)
 		if entity == "all" {
 			mvhd, err_mvhd := mp4.read_mvhd(handle)
 			fragment_count := int(f64(mvhd.duration) / f64(mvhd.timescale) / time)
@@ -123,12 +118,12 @@ main :: proc() {
 					mp4.write_fragment(handle, u32be(i), time)
 				}
 			}
-			os.close(handle)
 		} else if entity == "m3u8" {
-			mp4.create_manifest(handle, time)
+			error := mp4.create_manifest(handle, time)
+			mp4.handle_file_error(error)
 		} else if entity == "init" {
 			error := mp4.create_init(handle)
-			fmt.println(error)
+			mp4.handle_file_error(error)
 		} else {
 			err_frag := mp4.write_fragment(handle, u32be(strconv.atoi(entity)), time)
 			if err_frag != nil {
@@ -136,5 +131,5 @@ main :: proc() {
 			}
 		}
 	}
-	fmt.println("END")
+	//fmt.println("END")
 }

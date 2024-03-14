@@ -864,6 +864,7 @@ update_parents :: proc(output: os.Handle, trak_count: int, to_remove: u64be) -> 
 }
 create_init :: proc(handle: os.Handle) -> FileError {
 	// INIT OUTPUT
+	fseek(handle, 0, os.SEEK_SET) or_return
 	output := fopen("init.mp4", os.O_CREATE | os.O_RDWR, os.O_RDWR) or_return
 	defer os.close(output)
 	next := next_box(handle, nil) or_return
