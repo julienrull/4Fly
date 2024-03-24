@@ -1,7 +1,5 @@
 # 4Fly
 
-![logo](https://miro.medium.com/v2/resize:fit:1400/1*lq1UoerfrNwqxwUW84-ihg.jpeg)
-
 > [!warning]
 > This software is unfinished. Keep your expectations low.
 > It will not works with all mp4 files.
