@@ -1,6 +1,7 @@
-[INFO ] --- [2024-02-26 16:47:45] [fragment.odin:205:write_fragment()] types vide soun
-[INFO ] --- [2024-02-26 16:47:45] [fragment.odin:281:write_fragment()] Fragment 0, vide 3.000, soun 3.000
-[INFO ] --- [2024-02-26 16:47:45] [fragment.odin:205:write_fragment()] types vide soun
+[INFO ] --- [2024-03-24 12:18:33] [fragment.odin:221:write_fragment()] types vide soun
+[INFO ] --- [2024-03-24 12:18:33] [fragment.odin:323:write_fragment()] Fragment 22, vide 2.970, soun 2.995
+
+NFO ] --- [2024-02-26 16:47:45] [fragment.odin:205:write_fragment()] types vide soun
 [INFO ] --- [2024-02-26 16:47:45] [fragment.odin:281:write_fragment()] Fragment 1, vide 3.000, soun 3.000
 [INFO ] --- [2024-02-26 16:47:45] [fragment.odin:205:write_fragment()] types vide soun
 [INFO ] --- [2024-02-26 16:47:45] [fragment.odin:281:write_fragment()] Fragment 2, vide 3.000, soun 3.000
