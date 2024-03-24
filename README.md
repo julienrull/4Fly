@@ -4,7 +4,7 @@
 > This software is unfinished. Keep your expectations low.
 > It will not works with all mp4 files.
 
-> [!info]
+> [!note]
 > I created this tool on my free time. It becames too long for a personal project, so it's  in stand by for now.
 
 4Fly is a command line tool to generate, on the fly, any part of a mp4 file as mp4 fragment with hls protocol compliance .
