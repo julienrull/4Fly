@@ -1,8 +1,10 @@
 package mp4
 
-import "core:fmt"
+import "core:log"
 import "core:mem"
 import "core:slice"
+import "core:os"
+import "core:bytes"
 
 // CompositionOffsetBox
 Ctts :: struct {
@@ -15,6 +17,39 @@ Ctts :: struct {
 CompositionOffsetBoxEntries :: struct {
 	sample_count:  u32be,
 	sample_offset: u32be,
+}
+
+CttsV2 :: struct {
+	// stbl -> ctts
+	box:		 BoxV2,
+	entry_count: u32be,
+	entries:     []CompositionOffsetBoxEntries,
+}
+
+read_ctts :: proc(handle: os.Handle, id: int = 1) -> (atom: CttsV2, err: FileError) {
+    box := select_box(handle, "ctts", id) or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 8)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]CompositionOffsetBoxEntries)entries_b)[:atom.entry_count]
+    return atom, nil
+}
+
+write_ctts :: proc(handle: os.Handle, atom: CttsV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+	size_of(CompositionOffsetBoxEntries) * int(atom_cpy.entry_count))
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_ctts :: proc(data: []byte) -> (ctts: Ctts, acc: u64) {

@@ -6,7 +6,7 @@ import "core:log"
 import "core:slice"
 import "core:mem"
 import "core:strings"
-import "core:unicode/utf8"
+import "core:bytes"
 
 
 BoxError :: union {
@@ -21,114 +21,65 @@ handle_dump_error :: proc(dump_error: BoxError){
 }
 
 
-AtomWrapper :: struct {
-    header: FullBox,
-    type: string,
-    total_size: u64be,
-    header_size: u64be,
-    body_size: u64be,
-    is_container: bool
-}
 
 // TODO Is box exist error
-read_atom :: proc(handle: os.Handle) -> (aw: AtomWrapper, err: FileError) {
-    buffer := [8]u8{}
-    total_read := fread(handle, buffer[:]) or_return
-    aw.header.box.size = (^u32be)(&buffer[0])^
-    aw.header.box.type = (^u32be)(&buffer[4])^
-    aw.total_size = u64be(aw.header.box.size)
-    aw.type = strings.clone_from_bytes(buffer[4:])
-    if aw.header.box.size == 1 {
-        total_read += fread(handle, buffer[:]) or_return
-        aw.header.box.largesize = (^u64be)(&buffer[0])^
-        aw.total_size = aw.header.box.largesize
-    }
-    //aw.type = to_string(&box.type)
-    if aw.type == "uuid" {
-        total_read += fread(handle, aw.header.box.usertype[:]) or_return
-    }
-    aw.header_size = u64be(total_read)
-    remain := aw.total_size - aw.header_size
-    if remain != 0 {
-        if remain >= 8 {
-            readed := fread(handle, buffer[:]) or_return
-            type_s := strings.clone_from_bytes(buffer[4:])
-            if slice.contains(BOXES, type_s) {
-                aw.is_container = true
-            }
-            os.seek(handle, -i64(readed), os.SEEK_CUR)
-        }
-        if remain >=4 && !aw.is_container {
-            total_read += fread(handle, buffer[:4]) or_return
-            aw.header.version = buffer[0]
-            aw.header.flags[0] = buffer[1]
-            aw.header.flags[1] = buffer[2]
-            aw.header.flags[2] = buffer[3]
-            if aw.type != "ftyp" {
-                    aw.header_size += 4
-            }
-        }
-    }
-    aw.body_size = aw.total_size - aw.header_size
-    os.seek(handle, -i64(total_read), os.SEEK_CUR)
-    return aw, err
+
+Item :: union {
+    BoxV2,
 }
 
-Iterator :: union {
-    AtomWrapper,
-}
-
-next_atom :: proc(handle: os.Handle, old: Iterator) -> (next: Iterator, err: FileError) {
+next_box :: proc(handle: os.Handle, old: Item) -> (next: Item, err: FileError) {
     switch nature in old {
-        case AtomWrapper:
+        case BoxV2:
             total_seek: i64 = 0
             if nature.is_container{
                 total_seek = fseek(handle, i64(nature.header_size), os.SEEK_CUR) or_return
             }else{
                 total_seek = fseek(handle, i64(nature.total_size), os.SEEK_CUR) or_return
             }
-            atom, file_error := read_atom(handle)
+            box, file_error := read_box(handle)
             if file_error != nil {
                 switch nature in file_error {
                     case ReadFileError:
                         if nature.errno ==  38 {
                             return nil, nil
                         }
-                        case OpenFileError, SeekFileError, WrongFileTypeError:
+                        case WriteFileError, OpenFileError, SeekFileError, WrongFileTypeError:
                             return next,file_error
                 }
             }
-            next = atom
+            prev_value := get_item_value(old)
+            box.position = prev_value.position + u64(total_seek)
+            next = box
         case nil:
-            next = read_atom(handle) or_return
+            next = read_box(handle) or_return
     }
     return next, nil
 }
 
-iterator_value :: proc(atom: Iterator) -> (value: AtomWrapper) {
-    switch nature in atom {
-        case AtomWrapper:
+get_item_value :: proc(item: Item) -> (value: BoxV2) {
+    switch nature in item {
+        case BoxV2:
             value = nature
         case nil:
-            value = AtomWrapper{}
+            value = BoxV2{}
     }
     return value
 }
 
 
-dump :: proc(file_path: string) -> BoxError {
-    handle := fopen(file_path) or_return
-    defer os.close(handle)
+dump :: proc(handle: os.Handle) -> FileError {
+    fseek(handle, 0, os.SEEK_SET) or_return
     file_size := fseek(handle, 0, os.SEEK_END) or_return
-    total_seek := fseek(handle, 0, os.SEEK_SET) or_return
+    fseek(handle, 0, os.SEEK_SET) or_return
     lvl := 1
     size_heap := [15]u64be{}
     size_heap[1] = u64be(file_size)
-    next := next_atom(handle, nil) or_return
+    next := next_box(handle, nil) or_return
     for next != nil {
-        atom := iterator_value(next)
+        atom := get_item_value(next)
         print_box_level(atom.type, lvl)
-        next = next_atom(handle, next) or_return
+        next = next_box(handle, next) or_return
         i := lvl
         for i != 0 {
             if atom.is_container {
@@ -160,7 +111,7 @@ dump :: proc(file_path: string) -> BoxError {
 
 fopen :: proc(path: string, mode: int = os.O_RDONLY, perm: int = 0)  -> (os.Handle, FileError) {
     clean_file_path := filepath.clean(path)
-    handle, open_errno := os.open(clean_file_path, os.O_RDONLY)
+    handle, open_errno := os.open(clean_file_path, mode, perm)
     if open_errno !=  os.ERROR_NONE {
         return os.Handle{}, OpenFileError {
             path = path,
@@ -172,6 +123,9 @@ fopen :: proc(path: string, mode: int = os.O_RDONLY, perm: int = 0)  -> (os.Hand
 
 fread :: proc(handle: os.Handle, buffer: []u8) -> (int, FileError) {
         total_read, read_errno := os.read(handle, buffer)
+        if total_read == 0 {
+            read_errno = 38
+        }
         if read_errno !=  os.ERROR_NONE {
             return 0 , ReadFileError {
                 message = "Reading failed.",
@@ -192,6 +146,18 @@ fseek :: proc(handle: os.Handle, offset: i64, whence: int) -> (i64, FileError) {
             }
         }
         return total_seek, nil
+}
+
+fwrite :: proc(handle: os.Handle, data: []u8) -> (int, FileError) {
+    total_write, write_errno := os.write(handle, data)
+    if write_errno != os.ERROR_NONE {
+        return 0 , WriteFileError {
+            message = "Writing faild.",
+            errno = write_errno,
+            handle = handle,
+        }
+    }
+    return total_write, nil
 }
 
 print_box_level :: proc(name: string, level: int) {

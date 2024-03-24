@@ -6,7 +6,8 @@ FileError           :: union {
     OpenFileError,
     ReadFileError,
     SeekFileError,
-    WrongFileTypeError
+    WrongFileTypeError,
+    WriteFileError
 }
 
 handle_file_error :: proc (error: FileError) {
@@ -17,6 +18,8 @@ handle_file_error :: proc (error: FileError) {
             handle_read_file_error(nature)
         case SeekFileError:
             handle_seek_file_error(nature)
+        case WriteFileError:
+            handle_write_file_error(nature)
         case WrongFileTypeError:
     }
 }
@@ -63,6 +66,23 @@ handle_seek_file_error :: proc(error: SeekFileError) {
     os.close(error.handle)
 }
 WrongFileTypeError      :: struct {}
+
+
+WriteFileError       :: struct {
+    message:    string,
+    errno:      os.Errno,
+    handle: os.Handle
+}
+
+
+handle_write_file_error :: proc(error: WriteFileError) {
+    if error.errno == 38 {
+        log.errorf("errno %d: ERROR_EOF", error.errno)
+    }else {
+        log.errorf("errno %d: UNKNOW_WRITE_FILE_ERROR", error.errno)
+    }
+    os.close(error.handle)
+}
 
 UnknowBoxError      :: struct {}
 

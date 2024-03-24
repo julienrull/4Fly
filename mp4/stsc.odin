@@ -3,6 +3,8 @@ package mp4
 import "core:slice"
 import "core:mem"
 import "core:fmt"
+import "core:os"
+import "core:bytes"
 
 // SampleToChunkBox
 Stsc :: struct {
@@ -15,6 +17,41 @@ SampleToChunkBoxEntries :: struct {
      first_chunk:               u32be,
      samples_per_chunk:         u32be,
      sample_description_index:  u32be,
+}
+
+
+StscV2 :: struct {
+    box:            BoxV2,
+    entry_count:    u32be,
+    entries:        []SampleToChunkBoxEntries
+}
+
+read_stsc :: proc(handle: os.Handle, id: int = 1) -> (atom: StscV2, err: FileError) {
+    box := select_box(handle, "stsc", id) or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.entry_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.entry_count * 12)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]SampleToChunkBoxEntries)entries_b)[:atom.entry_count]
+    return atom, nil
+}
+
+write_stsc :: proc(handle: os.Handle, atom: StscV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.entry_count, 4)
+    if atom_cpy.entry_count > 0 {
+        bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+        size_of(SampleToChunkBoxEntries) * int(atom_cpy.entry_count))
+    }
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_stsc :: proc(data: []byte) -> (stsc: Stsc, acc: u64) {

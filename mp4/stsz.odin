@@ -2,7 +2,9 @@ package mp4
 
 import "core:slice"
 import "core:mem"
+import "core:os"
 import "core:fmt"
+import "core:bytes"
 
 // SampleSizeBox
 Stsz :: struct {
@@ -10,6 +12,42 @@ Stsz :: struct {
     sample_size:    u32be,
     sample_count:   u32be,
     entries_sizes:  []u32be
+}
+
+StszV2 :: struct {
+    box:                BoxV2,
+    sample_size:        u32be,
+    sample_count:       u32be,
+    entries:      []u32be
+}
+
+read_stsz :: proc(handle: os.Handle, id: int = 1) -> (atom: StszV2, err: FileError) {
+    box := select_box(handle, "stsz", id) or_return
+    atom.box = box
+    fseek(handle, i64(box.header_size), os.SEEK_CUR) or_return
+    buffer := [4]u8{}
+    fread(handle, buffer[:]) or_return
+    atom.sample_size = transmute(u32be)buffer
+    fread(handle, buffer[:]) or_return
+    atom.sample_count = transmute(u32be)buffer
+	entries_b := make([]u8, atom.sample_count * 4)
+    fread(handle, entries_b[:]) or_return
+    atom.entries = (transmute([]u32be)entries_b)[:atom.sample_count]
+    return atom, nil
+}
+
+write_stsz :: proc(handle: os.Handle, atom: StszV2) -> FileError {
+    data := bytes.Buffer{}
+	atom_cpy := atom
+    bytes.buffer_init(&data, []u8{})
+    bytes.buffer_write_ptr(&data, &atom_cpy.sample_size, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.sample_count, 4)
+    bytes.buffer_write_ptr(&data, &atom_cpy.entries,
+	size_of(u32be) * int(atom_cpy.sample_count))
+    write_box(handle, atom_cpy.box) or_return
+    total_write := fwrite(handle, bytes.buffer_to_bytes(&data)) or_return
+    bytes.buffer_destroy(&data)
+	return nil
 }
 
 deserialize_stsz :: proc(data: []byte) -> (stsz: Stsz, acc: u64) {

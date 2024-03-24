@@ -4,6 +4,11 @@
 - [x] Create fragmenter script 
 - [x] Last segment case
 - [x] All cmd
+- [ ] Big function to handle any box reading
+- [ ] Rewrite new_segment() and create_fragment()
+- [ ] Rewrite create_manifest()
+- [ ] Rewrite create_init(), must copy src file by substraction
+- [ ] add lvl to Atom wrapper
 
 # BUGS
 
