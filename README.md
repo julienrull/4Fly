@@ -1,35 +1,43 @@
 # 4Fly
 
 > [!warning]
-> This software is unfinished. Keep your expectations low.
-> It will not works with all mp4 files.
+> 4Fly is an exprerimentation, it is an unfinished software. Keep your expectations low. 
 
-> [!note]
-> I created this tool on my free time. It becames too long for a personal project, so it's  in stand by for now.
-
-4Fly is a command line tool to generate, on the fly, any part of a mp4 file as mp4 fragment with hls protocol compliance .
-
-## Installation
-
-### Binary file
-You can download the laste version here.
-
-### Compile from sources
-
-From Windows, Linux or MacOS:
-
-- Get odin compiler, you will need the "core" library.
-- Clone the main branch.
-- Get to the root of the project.
-- Run :
-
-```shell
-$ odin build .
-```
+4Fly is a cross platform command line tool to demux/encode, at any time , mp4 files into fragments of any duration. It's to attempt avoiding mp4 pre-fragmentation for HLS protocoles.
 
 ## Usages
+
+### Fragmentation
+
+```shell
+$ 4Fly <path> <flags...>
+
+path  : mp4 video path
+
+flags:
+    -time:[default = 3.0]
+        fragment duration.
+    -entity:[default=all - values:all;m3u8;init;<fragment_number>]
+        Entity to generate.
+```
+
+*Exemple* :
+
+```shell
+# Creating HLS Manifest of 6.0 seconds long segments.
+$ 4Fly .\test.mp4 -time:6.0 -entity:m3u8
+
+# Creating FMP4 init file.
+$ 4Fly .\test.mp4 -time:6.0 -entity:init
+
+# Creating FMP4 20th fragment.
+$ 4Fly .\test.mp4 -time:6.0 -entity:20
+```
+
 ### Dump
+
 You can display the file structure :
+
 ```shell
 $ 4Fly dump <mp4_file_path> 
 ```
@@ -42,7 +50,7 @@ Run this :
 $ 4Fly dump test.mp4
 ```
 
-will output :
+can output something like this :
 
 ```shell
 [ftyp]  0
@@ -89,41 +97,11 @@ will output :
 [mdat]
 ```
 
-### Fragmentation
+### HLS
 
-```shell
-$ 4Fly <path> <flags...>
+To test with HLS protocole :
 
-path  : mp4 video path
-
-flags:
-    -time:[default = 3.0]
-        Segments duration.
-    -entity:[default=all - values:all;m3u8;init;<segment_number>]
-        Entity to generate.
-```
-
-*Exemple* : 
-
-```shell
-# Generate HLS Manifest of 6.0 seconds long segments.
-$ 4Fly .\test.mp4 -time:6.0 -entity:m3u8
-
-# Generate FMP4 init file.
-$ 4Fly .\test.mp4 -time:6.0 -entity:init
-
-# Generate FMP4 20th fragment.
-$ 4Fly .\test.mp4 -time:6.0 -entity:20
-```
-
-### With http server
-
-Here is an exemple to show you the main usage of 4Fly.
-Here you can run a test server with go that going to serve your video with hls protocole without the need to pre-fragment your video.
-
-To run it :
-
-- Make shure you compile and have 4Fly located in project root.
+- Make shure you compile and have 4Fly binary in project root.
 - Go to "server" folder
 - Put your video in
 - Rename the video to "test.mp4"
@@ -133,8 +111,28 @@ To run it :
 $ go run .
 ```
 
-- Open your browser
-- Go to url "http://localhost:8080"
+- Open your browser to [http://localhost:8080](http://localhost:8080)
+  
+  
 
 ... And that's it !
 
+## Installation
+
+### Binary file
+
+You can download the laste version here.
+
+### Compile from sources
+
+From Windows, Linux or MacOS:
+
+- Get odin compiler, you need the "core" library.
+
+- Clone 4File main branch and build
+  
+  ```bash
+  git clone https://github.com/julienrull/4Fly.git
+  cd 4Fly
+  odin build .
+  ```
