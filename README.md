@@ -1,9 +1,10 @@
 # 4Fly
 
 > [!warning]
-> 4Fly is an experimentation, it is an unfinished software. Keep your expectations low. 
+> Keep in mind that 4Fly is still in the experimental phase and may not be bug-free or fully polished.
+> Be aware of this when using it.
 
-4Fly is a cross platform command line tool to demux/encode, at any time , mp4 files into fragments of any duration. It's to attempt avoiding mp4 pre-fragmentation for HLS protocole.
+4Fly is a versatile cross-platform CLI tool that enables seamless demuxing and encoding of MP4 files, allowing for flexible fragmentation into segments of any duration. Its primary goal is to circumvent the limitations of traditional pre-fragmentation methods used in HLS protocols.
 
 ## Usages
 ### Fragmentation
